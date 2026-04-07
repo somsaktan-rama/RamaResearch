@@ -19,6 +19,21 @@
 
   <div id="errorScreen" style="display:none;" class="alert alert-danger text-center"></div>
 
+  <div id="bindingScreen" style="display:none;" class="card shadow-sm mx-auto mt-4" style="max-width: 400px;">
+    <div class="card-body text-center">
+      <h5 class="card-title text-primary mb-3">ลงทะเบียนเข้าใช้งานครั้งแรก</h5>
+      <p class="text-muted small mb-4">ระบบจะทำการผูกบัญชี LINE ของท่านกับ Rama ID เพื่อเข้าสู่ระบบอัตโนมัติในครั้งถัดไป</p>
+      
+      <div class="mb-3 text-start">
+        <label class="form-label fw-bold">กรุณาระบุ Rama ID ของท่าน</label>
+        <input type="text" id="inputRamaID" class="form-control" placeholder="เช่น 123456">
+      </div>
+      
+      <button class="btn btn-primary w-100" onclick="bindAccount()">ยืนยันและเข้าสู่ระบบ</button>
+      <div id="bindingError" class="text-danger mt-2 small" style="display:none;"></div>
+    </div>
+  </div>
+  
   <div id="mainApp" style="display:none;">
     <div class="alert alert-success">
       ยินดีต้อนรับ, <span id="displayUserName" class="fw-bold"></span> 
