@@ -58,35 +58,90 @@
     }
   }
 
-  // 2. ดึง line_uid และตรวจสอบกับ Google Sheet
+let currentLineUid = ""; // สร้างตัวแปรเก็บ UID ไว้ชั่วคราวตอนผูกบัญชี
+
+  // แก้ไขฟังก์ชันตรวจสอบผู้ใช้
   async function checkUserInSystem() {
     try {
       const profile = await liff.getProfile();
-      const lineUid = profile.userId;
+      currentLineUid = profile.userId; // เก็บไว้ใช้ตอนกรอก Rama ID
       
-      // ยิง GET Request ไปที่ GAS API
-      const response = await fetch(`${GAS_WEB_APP_URL}?action=loginByLine&lineUid=${lineUid}`);
+      const response = await fetch(`${GAS_WEB_APP_URL}?action=loginByLine&lineUid=${currentLineUid}`);
+      const data = await response.json();
+
+      document.getElementById('loadingScreen').style.display = 'none';
+
+      if (data.status === 'success') {
+        // กรณีที่ 1: เคยผูกบัญชีแล้ว -> เข้าสู่แอปหลัก
+        setupMainApp(data); 
+      } else {
+        // กรณีที่ 2: ยังไม่เคยผูกบัญชี (ไม่พบ UID) -> แสดงหน้ากรอก Rama ID
+        document.getElementById('bindingScreen').style.display = 'block';
+      }
+    } catch (err) {
+      showError("เกิดข้อผิดพลาดในการเชื่อมต่อ: " + err);
+    }
+  }
+
+  // ฟังก์ชันใหม่: ส่ง Rama ID ไปผูกกับ LINE UID
+  async function bindAccount() {
+    const ramaID = document.getElementById('inputRamaID').value.trim();
+    const errorBox = document.getElementById('bindingError');
+    
+    if (!ramaID) {
+      errorBox.innerText = "กรุณาระบุ Rama ID";
+      errorBox.style.display = 'block';
+      return;
+    }
+
+    // เปลี่ยนปุ่มเป็นสถานะกำลังโหลด
+    const btn = document.querySelector('#bindingScreen button');
+    btn.disabled = true;
+    btn.innerText = "กำลังตรวจสอบข้อมูล...";
+    errorBox.style.display = 'none';
+
+    try {
+      // ยิง POST ไปที่ GAS เพื่อทำการผูกบัญชี
+      const response = await fetch(GAS_WEB_APP_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'bindAccount',
+          ramaID: ramaID,
+          lineUid: currentLineUid
+        })
+      });
       const data = await response.json();
 
       if (data.status === 'success') {
-        // ลงทะเบียนสำเร็จ เข้าหน้าแอป
-        currentUser = data;
-        document.getElementById('loadingScreen').style.display = 'none';
-        document.getElementById('mainApp').style.display = 'block';
-        
-        document.getElementById('displayUserName').innerText = data.name;
-        document.getElementById('displayRamaID').innerText = data.ramaID;
-        document.getElementById('displayGroup').innerText = data.group;
-        
-        // โหลดข้อมูลเริ่มต้น (รายชื่อ)
-        loadInitialData();
+        // ผูกสำเร็จ -> ซ่อนหน้าผูกบัญชี และเปิดแอปหลัก
+        document.getElementById('bindingScreen').style.display = 'none';
+        setupMainApp(data);
+        alert('ลงทะเบียนและผูกบัญชีสำเร็จ!');
       } else {
-        // ไม่พบ Line UID ใน Sheet staff
-        showError(data.message);
+        // หา Rama ID ไม่เจอใน Sheet staff
+        errorBox.innerText = data.message;
+        errorBox.style.display = 'block';
+        btn.disabled = false;
+        btn.innerText = "ยืนยันและเข้าสู่ระบบ";
       }
     } catch (err) {
-      showError("เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์: " + err);
+      errorBox.innerText = "เกิดข้อผิดพลาด: " + err;
+      errorBox.style.display = 'block';
+      btn.disabled = false;
+      btn.innerText = "ยืนยันและเข้าสู่ระบบ";
     }
+  }
+
+  // ฟังก์ชันแยกสำหรับตั้งค่าหน้าหลัก (เพื่อลดความซ้ำซ้อน)
+  function setupMainApp(userData) {
+    currentUser = userData;
+    document.getElementById('mainApp').style.display = 'block';
+    document.getElementById('displayUserName').innerText = userData.name;
+    document.getElementById('displayRamaID').innerText = userData.ramaID;
+    document.getElementById('displayGroup').innerText = userData.group;
+    
+    // โหลดรายชื่องานวิจัย หรือรายชื่อ Staff ต่อตาม Logic ของคุณ
+    // loadInitialData(); 
   }
 
   // 3. ฟังก์ชันตัวอย่างในการยิง GET API ดึงรายชื่องานวิจัย
