@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rama Research Tracking</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+
+<div class="container py-4">
+  <h4 class="mb-4 text-center text-primary">Rama Research Tracking</h4>
+
+  <div id="loadingScreen" class="text-center py-5">
+    <div class="spinner-border text-primary" role="status"></div>
+    <p class="mt-2">กำลังตรวจสอบข้อมูล LINE Login...</p>
+  </div>
+
+  <div id="errorScreen" style="display:none;" class="alert alert-danger text-center"></div>
+
+  <div id="mainApp" style="display:none;">
+    <div class="alert alert-success">
+      ยินดีต้อนรับ, <span id="displayUserName" class="fw-bold"></span> 
+      (Rama ID: <span id="displayRamaID"></span> - <span id="displayGroup"></span>)
+    </div>
+    
+    <button class="btn btn-primary mb-3" onclick="loadMyProjects()">โหลดรายการงานวิจัยของฉัน</button>
+    
+    <div id="researchContainer"></div>
+  </div>
+</div>
+
+<script>
+  // ==========================================
+  // ตั้งค่า 2 ตัวนี้ให้ถูกต้อง
+  const LIFF_ID = "ใส่_LIFF_ID_ของคุณที่นี่"; 
+  const GAS_WEB_APP_URL = "ใส่_URL_ของ_Google_Apps_Script_ที่นี่";
+  // ==========================================
+
+  let currentUser = {}; // เก็บข้อมูลหมอ/อาจารย์ที่ล็อคอิน
+
+  window.onload = function() {
+    initializeLiff();
+  };
+
+  // 1. เริ่มการทำงานของ LINE LIFF
+  async function initializeLiff() {
+    try {
+      await liff.init({ liffId: LIFF_ID });
+      if (liff.isLoggedIn()) {
+        checkUserInSystem();
+      } else {
+        liff.login(); // บังคับเด้งไปหน้า Login ของ LINE
+      }
+    } catch (err) {
+      showError("LIFF Init Error: " + err);
+    }
+  }
+
+  // 2. ดึง line_uid และตรวจสอบกับ Google Sheet
+  async function checkUserInSystem() {
+    try {
+      const profile = await liff.getProfile();
+      const lineUid = profile.userId;
+      
+      // ยิง GET Request ไปที่ GAS API
+      const response = await fetch(`${GAS_WEB_APP_URL}?action=loginByLine&lineUid=${lineUid}`);
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        // ลงทะเบียนสำเร็จ เข้าหน้าแอป
+        currentUser = data;
+        document.getElementById('loadingScreen').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+        
+        document.getElementById('displayUserName').innerText = data.name;
+        document.getElementById('displayRamaID').innerText = data.ramaID;
+        document.getElementById('displayGroup').innerText = data.group;
+        
+        // โหลดข้อมูลเริ่มต้น (รายชื่อ)
+        loadInitialData();
+      } else {
+        // ไม่พบ Line UID ใน Sheet staff
+        showError(data.message);
+      }
+    } catch (err) {
+      showError("เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์: " + err);
+    }
+  }
+
+  // 3. ฟังก์ชันตัวอย่างในการยิง GET API ดึงรายชื่องานวิจัย
+  async function loadMyProjects() {
+    try {
+      const response = await fetch(`${GAS_WEB_APP_URL}?action=getResearchList&ramaID=${currentUser.ramaID}`);
+      const result = await response.json();
+      
+      if(result.status === 'success') {
+        console.log("Projects:", result.data);
+        alert(`พบงานวิจัยทั้งหมด ${result.data.length} รายการ (ดูข้อมูลใน Console)`);
+        // นำ result.data ไปวาดลง <select> เหมือนโค้ดที่แล้ว
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  // 4. ฟังก์ชันตัวอย่างในการยิง POST API บันทึกข้อมูล
+  async function apiSaveData(formDataObj) {
+    try {
+      const response = await fetch(GAS_WEB_APP_URL, {
+        method: 'POST',
+        // สำคัญ: ห้ามใส่ header 'Content-Type': 'application/json' เพื่อป้องกัน CORS Preflight error
+        body: JSON.stringify({
+          action: 'saveData',
+          formData: formDataObj
+        })
+      });
+      const result = await response.json();
+      if(result.status === 'success') alert('บันทึกสำเร็จ');
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function showError(msg) {
+    document.getElementById('loadingScreen').style.display = 'none';
+    const errScreen = document.getElementById('errorScreen');
+    errScreen.style.display = 'block';
+    errScreen.innerText = msg;
+  }
+</script>
+</body>
+</html>
