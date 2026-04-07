@@ -1,272 +1,201 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Rama Research Tracking</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research Rama Tracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { background-color: #f8f9fa; }
+        .step-card { border-left: 4px solid #0d6efd; margin-bottom: 15px; }
+        .step-locked { opacity: 0.5; pointer-events: none; border-left: 4px solid #6c757d; }
+    </style>
 </head>
 <body>
 
 <div class="container py-4">
-  <h4 class="mb-4 text-center text-primary">Rama Research Tracking</h4>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัย (Dermatology)</h3>
 
-  <div id="loadingScreen" class="text-center py-5">
-    <div class="spinner-border text-primary" role="status"></div>
-    <p class="mt-2">กำลังตรวจสอบข้อมูล LINE Login...</p>
-  </div>
-
-  <div id="errorScreen" style="display:none;" class="alert alert-danger text-center"></div>
-
-  <div id="bindingScreen" style="display:none;" class="card shadow-sm mx-auto mt-4" style="max-width: 400px;">
-    <div class="card-body text-center">
-      <h5 class="card-title text-primary mb-3">ลงทะเบียนเข้าใช้งานครั้งแรก</h5>
-      <p class="text-muted small mb-4">ระบบจะทำการผูกบัญชี LINE ของท่านกับ Rama ID เพื่อเข้าสู่ระบบอัตโนมัติในครั้งถัดไป</p>
-      
-      <div class="mb-3 text-start">
-        <label class="form-label fw-bold">กรุณาระบุ Rama ID ของท่าน</label>
-        <input type="text" id="inputRamaID" class="form-control" placeholder="เช่น 123456">
-      </div>
-      
-      <button class="btn btn-primary w-100" onclick="bindAccount()">ยืนยันและเข้าสู่ระบบ</button>
-      <div id="bindingError" class="text-danger mt-2 small" style="display:none;"></div>
+    <div id="login-section" class="card shadow-sm p-4">
+        <div class="text-center mb-3">
+            <span id="login-status" class="text-warning fw-bold">กำลังเตรียมความพร้อมระบบ...</span>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Rama ID (สำหรับการทดสอบ)</label>
+            <input type="text" id="login-ramaid" class="form-control" placeholder="ระบุ Rama ID ของคุณ">
+        </div>
+        <button id="login-btn" class="btn btn-primary w-100" onclick="login()" disabled>เข้าสู่ระบบ</button>
     </div>
-  </div>
-  
-  <div id="mainApp" style="display:none;">
-    <div class="alert alert-success">
-      ยินดีต้อนรับ, <span id="displayUserName" class="fw-bold"></span> 
-      (Rama ID: <span id="displayRamaID"></span> - <span id="displayGroup"></span>)
+
+    <div id="app-section" style="display:none;">
+        <div class="mb-3">
+            <label class="form-label fw-bold">เลือกงานวิจัย</label>
+            <select id="research-selector" class="form-select" onchange="loadResearch(this.value)">
+                <option value="">-- กรุณาเลือก --</option>
+                <option value="new">+ สร้างงานวิจัยใหม่</option>
+            </select>
+        </div>
+
+        <form id="research-form" style="display:none;">
+            <div class="card shadow-sm p-3 mb-4">
+                <h5 class="border-bottom pb-2">ข้อมูลทั่วไป</h5>
+                <div class="mb-2">
+                    <label>Title</label>
+                    <input type="text" id="Title" class="form-control" required>
+                </div>
+                <div class="mb-2">
+                    <label>Main Research (MR)</label>
+                    <input type="text" id="ramaID_MR" class="form-control" readonly>
+                </div>
+                <div class="mb-2">
+                    <label>Other Research (แพทย์)</label>
+                    <select id="other_research" class="form-select" multiple></select>
+                </div>
+                <div class="mb-2">
+                    <label>Main Staff (MS - อาจารย์ประจำ)</label>
+                    <select id="ramaID_MS" class="form-select" required></select>
+                </div>
+                <div class="mb-2">
+                    <label>Other Staff (อาจารย์)</label>
+                    <select id="other_staff" class="form-select" multiple></select>
+                </div>
+            </div>
+
+            <div class="card shadow-sm p-3 mb-4">
+                <h5 class="border-bottom pb-2">ความก้าวหน้า (Progress)</h5>
+                <div id="progress-container"></div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-success w-100" onclick="saveData()">💾 บันทึกข้อมูล</button>
+                <button type="button" class="btn btn-danger w-100" onclick="location.reload()">ยกเลิก</button>
+            </div>
+        </form>
     </div>
-    
-    <button class="btn btn-primary mb-3" onclick="loadMyProjects()">โหลดรายการงานวิจัยของฉัน</button>
-    
-    <div id="researchContainer"></div>
-  </div>
 </div>
 
 <script>
-  // ==========================================
-  // ตั้งค่า 2 ตัวนี้ให้ถูกต้อง
-  const LIFF_ID = "2009730964-NicRUF0I"; 
-  const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyPuWxqyYQ7ulh0Dyb-fgc29FbtYfoSHtu9MgN-Rih9PKKshHDuiDncC6qZJe6OoGU/exec";
-  // ==========================================
-
-  let currentUser = {}; // เก็บข้อมูลหมอ/อาจารย์ที่ล็อคอิน
-
-  window.onload = function() {
-    initializeLiff();
-  };
-
-// ฟังก์ชันตรวจสอบว่าใช้งานผ่าน PC หรือไม่
-  function isDevicePC() {
-    // 1. ตรวจสอบจาก LIFF ว่าเปิดในแอป LINE บนมือถือหรือไม่
-    if (liff.isInClient()) {
-      return false; // ถ้าเปิดในแอป LINE ถือว่าเป็นมือถือ
-    }
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbyPuWxqyYQ7ulh0Dyb-fgc29FbtYfoSHtu9MgN-Rih9PKKshHDuiDncC6qZJe6OoGU/exec';
+    let currentUser = { id: '', role: '', ip: '' };
+    let currentData = {};
     
-    // 2. ตรวจสอบจาก User-Agent ของ Browser
-    const isMobileBrowser = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    return !isMobileBrowser; // ถ้าไม่ใช่ Mobile ให้ถือว่าเป็น PC
-  }
-  
-  // 1. เริ่มการทำงานของ LINE LIFF
-  async function initializeLiff() {
-    try {
-      await liff.init({ liffId: LIFF_ID });
-      if (liff.isLoggedIn()) {
-        checkUserInSystem();
-      } else {
-        liff.login(); // บังคับเด้งไปหน้า Login ของ LINE
-      }
-    } catch (err) {
-      showError("LIFF Init Error: " + err);
-    }
-  }
+    // ลำดับขั้นตอนการอนุมัติ
+    const progressSteps = [
+        { key: 'protocol_draft', label: 'Protocol Draft', role: 'MR' },
+        { key: 'MS_protocol_draft', label: 'MS Protocol Draft', role: 'MS' },
+        { key: 'EC_subm', label: 'EC Submission', role: 'MR' },
+        { key: 'MS_EC_subm', label: 'MS EC Submission', role: 'MS' },
+        { key: 'EC_correct', label: 'EC Correction', role: 'MR' },
+        { key: 'MS_EC_correct', label: 'MS EC Correction', role: 'MS' },
+        { key: 'EC_approve', label: 'EC Approve', role: 'MR', hasDates: true, hasFile: 'EC_link' },
+        { key: 'MS_EC_approve', label: 'MS EC Approve', role: 'MS' },
+        { key: 'data_collect', label: 'Data Collect', role: 'MR' },
+        { key: 'data_analysis', label: 'Data Analysis', role: 'MR' },
+        { key: 'manu_draft', label: 'Manuscript Draft', role: 'MR' },
+        { key: 'MS_manu_draft', label: 'MS Manuscript Draft', role: 'MS' },
+        { key: 'manu_submis', label: 'Manuscript Submission', role: 'MR' },
+        { key: 'MS_manu_submis', label: 'MS Manuscript Submission', role: 'MS' },
+        { key: 'manu_revise', label: 'Manuscript Revise', role: 'MR' },
+        { key: 'MS_manu_revise', label: 'MS Manuscript Revise', role: 'MS' },
+        { key: 'manu_accept', label: 'Manuscript Accept', role: 'MR', hasFile: 'Manu_link' },
+        { key: 'presentation', label: 'Presentation', role: 'MR' },
+        { key: 'MS_manu_accept', label: 'MS Final Accept', role: 'MS' }
+    ];
 
-let currentLineUid = ""; // สร้างตัวแปรเก็บ UID ไว้ชั่วคราวตอนผูกบัญชี
-
-  // แก้ไขฟังก์ชันตรวจสอบผู้ใช้
-  async function checkUserInSystem() {
-    try {
-      const profile = await liff.getProfile();
-      currentLineUid = profile.userId; // เก็บไว้ใช้ตอนกรอก Rama ID
-      
-      const response = await fetch(`${GAS_WEB_APP_URL}?action=loginByLine&lineUid=${currentLineUid}`);
-      const data = await response.json();
-
-      document.getElementById('loadingScreen').style.display = 'none';
-
-      if (data.status === 'success') {
-        // กรณีที่ 1: เคยผูกบัญชีแล้ว -> เข้าสู่แอปหลัก
-        setupMainApp(data); 
-      } else {
-        // กรณีที่ 2: ยังไม่เคยผูกบัญชี (ไม่พบ UID) -> แสดงหน้ากรอก Rama ID
-        document.getElementById('bindingScreen').style.display = 'block';
-      }
-    } catch (err) {
-      showError("เกิดข้อผิดพลาดในการเชื่อมต่อ: " + err);
-    }
-  }
-
-  // ฟังก์ชันใหม่: ส่ง Rama ID ไปผูกกับ LINE UID
-  async function bindAccount() {
-    const ramaID = document.getElementById('inputRamaID').value.trim();
-    const errorBox = document.getElementById('bindingError');
-    
-    if (!ramaID) {
-      errorBox.innerText = "กรุณาระบุ Rama ID";
-      errorBox.style.display = 'block';
-      return;
-    }
-
-    // เปลี่ยนปุ่มเป็นสถานะกำลังโหลด
-    const btn = document.querySelector('#bindingScreen button');
-    btn.disabled = true;
-    btn.innerText = "กำลังตรวจสอบข้อมูล...";
-    errorBox.style.display = 'none';
-
-    try {
-      // ยิง POST ไปที่ GAS เพื่อทำการผูกบัญชี
-      const response = await fetch(GAS_WEB_APP_URL, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'bindAccount',
-          ramaID: ramaID,
-          lineUid: currentLineUid
-        })
-      });
-      const data = await response.json();
-
-      if (data.status === 'success') {
-        // ผูกสำเร็จ -> ซ่อนหน้าผูกบัญชี และเปิดแอปหลัก
-        document.getElementById('bindingScreen').style.display = 'none';
-        setupMainApp(data);
-        alert('ลงทะเบียนและผูกบัญชีสำเร็จ!');
-      } else {
-        // หา Rama ID ไม่เจอใน Sheet staff
-        errorBox.innerText = data.message;
-        errorBox.style.display = 'block';
-        btn.disabled = false;
-        btn.innerText = "ยืนยันและเข้าสู่ระบบ";
-      }
-    } catch (err) {
-      errorBox.innerText = "เกิดข้อผิดพลาด: " + err;
-      errorBox.style.display = 'block';
-      btn.disabled = false;
-      btn.innerText = "ยืนยันและเข้าสู่ระบบ";
-    }
-  }
-
-  // ฟังก์ชันแยกสำหรับตั้งค่าหน้าหลัก (เพื่อลดความซ้ำซ้อน)
-  function setupMainApp(userData) {
-    currentUser = userData;
-    document.getElementById('mainApp').style.display = 'block';
-    document.getElementById('displayUserName').innerText = userData.name;
-    document.getElementById('displayRamaID').innerText = userData.ramaID;
-    document.getElementById('displayGroup').innerText = userData.group;
-    
-    // โหลดรายชื่องานวิจัย หรือรายชื่อ Staff ต่อตาม Logic ของคุณ
-    // loadInitialData(); 
-  }
-
-  // 3. ฟังก์ชันตัวอย่างในการยิง GET API ดึงรายชื่องานวิจัย
-  async function loadMyProjects() {
-    try {
-      // (ส่วนนี้เป็นคำสั่ง fetch API ดึงข้อมูลของคุณตามปกติ)
-      const response = await fetch(`${GAS_WEB_APP_URL}?action=getResearchList&ramaID=${currentUser.ramaID}`);
-      const result = await response.json();
-      
-      if(result.status === 'success') {
-        currentProjects = result.data; // เก็บข้อมูลงานวิจัยที่ดึงมา
-        const select = document.getElementById('projectSelect');
-        select.innerHTML = ''; // ล้างค่าเก่าก่อน
-        
-        // --- ส่วนที่เพิ่มเงื่อนไขตรวจ PC ---
-        if (isDevicePC()) {
-          select.innerHTML += '<option value="NEW">-- ➕ สร้างงานวิจัยใหม่ --</option>';
+    // หน่วงเวลาเตรียมระบบและดึง IP หากใช้ PC
+    window.onload = async function() {
+        if (!navigator.userAgent.includes("LINE")) {
+            try {
+                let response = await fetch('https://api.ipify.org?format=json');
+                let data = await response.json();
+                currentUser.ip = data.ip; 
+            } catch(e) { console.log("IP fetch failed"); }
+            enableLogin();
         } else {
-          select.innerHTML += '<option value="" disabled selected>-- เลือกงานวิจัยเพื่ออัปเดตความก้าวหน้า --</option>';
+            // จำลอง Delay สำหรับ LINE LIFF 
+            setTimeout(() => { enableLogin(); }, 1500);
         }
-        // -----------------------------
+    };
+
+    function enableLogin() {
+        document.getElementById('login-status').innerText = "✅ พร้อมใช้งาน" + (currentUser.ip ? ` (IP: ${currentUser.ip})` : "");
+        document.getElementById('login-status').className = "text-success fw-bold";
+        document.getElementById('login-btn').disabled = false;
+    }
+
+    function login() {
+        const id = document.getElementById('login-ramaid').value;
+        if (!id) return Swal.fire('แจ้งเตือน', 'กรุณาระบุ Rama ID', 'warning');
+        currentUser.id = id;
         
-        // วนลูปนำงานวิจัยเก่ามาแสดง
-        currentProjects.forEach((proj, idx) => {
-          select.innerHTML += `<option value="${idx}">${proj.Title || 'ไม่ระบุชื่อ'} (${proj.EC_approve ? 'Approved' : 'Draft'})</option>`;
+        document.getElementById('login-section').style.display = 'none';
+        document.getElementById('app-section').style.display = 'block';
+        fetchInitialData();
+    }
+
+    function fetchInitialData() {
+        Swal.fire({ title: 'กำลังโหลดข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        fetch(`${GAS_URL}?action=getInitialData&ramaID=${currentUser.id}`)
+            .then(res => res.json())
+            .then(data => {
+                populateDropdowns(data);
+                Swal.close();
+            }).catch(() => Swal.fire('Error', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error'));
+    }
+
+    function populateDropdowns(data) {
+        // ... (โค้ดจัดการนำ data.doctors, data.mainStaffs ไปใส่ใน <select>)
+        // รายละเอียดการยัดข้อมูลลง Dropdown และสร้างรายการ Progress
+    }
+
+    // ฟังก์ชันสร้าง UI สำหรับ Progress แบบเช็คคิว
+    function renderProgress() {
+        const container = document.getElementById('progress-container');
+        container.innerHTML = '';
+        
+        let previousFilled = true; // ควบคุมไม่ให้ข้ามช่อง
+        
+        progressSteps.forEach((step, index) => {
+            const isFilled = currentData[step.key] ? true : false;
+            const isMyRole = (step.role === 'MR' && currentUser.id == currentData.ramaID_MR) || 
+                             (step.role === 'MS' && currentUser.id == currentData.ramaID_MS);
+            
+            const lockedClass = (!previousFilled || !isMyRole) ? 'step-locked' : '';
+            
+            let html = `
+            <div class="card p-2 step-card ${lockedClass}">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">${step.label} (${step.role})</span>
+                    <button type="button" class="btn btn-sm ${isFilled ? 'btn-success' : 'btn-outline-primary'}"
+                        onclick="stampTime('${step.key}')" ${!previousFilled || !isMyRole ? 'disabled' : ''}>
+                        ${isFilled ? currentData[step.key] : 'กดเพื่อลงเวลา'}
+                    </button>
+                </div>
+            `;
+            
+            // เพิ่มช่องอัปโหลด PDF ถ้าถึงสเต็ปที่กำหนด
+            if(step.hasFile && previousFilled && isMyRole && !isFilled) {
+                html += `<input type="file" id="file_${step.key}" class="form-control form-control-sm mt-2" accept=".pdf">`;
+            }
+            
+            html += `</div>`;
+            container.innerHTML += html;
+            
+            if (!isFilled) previousFilled = false; // ถ้าสเต็ปนี้ยังไม่ทำ สเต็ปต่อไปจะถูกล็อค
         });
-        
-        // บังคับให้หน้าฟอร์มรีเซ็ตตามค่าที่เลือก
-        handleProjectChange(); 
-      }
-    } catch (err) {
-      console.error("โหลดข้อมูลล้มเหลว:", err);
     }
-  }
 
-  // 4. ฟังก์ชันตัวอย่างในการยิง POST API บันทึกข้อมูล
-  async function apiSaveData(formDataObj) {
-    try {
-      const response = await fetch(GAS_WEB_APP_URL, {
-        method: 'POST',
-        // สำคัญ: ห้ามใส่ header 'Content-Type': 'application/json' เพื่อป้องกัน CORS Preflight error
-        body: JSON.stringify({
-          action: 'saveData',
-          formData: formDataObj
-        })
-      });
-      const result = await response.json();
-      if(result.status === 'success') alert('บันทึกสำเร็จ');
-    } catch (err) {
-      console.error(err);
+    function stampTime(key) {
+        const now = new Date().toLocaleString('th-TH');
+        currentData[key] = now;
+        renderProgress(); // Re-render เพื่อปลดล็อคข้อต่อไป
     }
-  }
 
-function handleProjectChange() {
-    const val = document.getElementById('projectSelect').value;
-    const form = document.getElementById('researchForm');
-    
-    // ถ้าผู้ใช้เลือกบรรทัด "-- เลือกงานวิจัย --" (ค่าว่าง) ให้ซ่อนฟอร์มไว้ก่อน
-    if (val === "") {
-      form.style.display = 'none';
-      return;
+    async function saveData() {
+        Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        // ... รวบรวมข้อมูลจาก Form, อ่านไฟล์ PDF เป็น Base64, แล้วส่ง POST ไปยัง GAS
     }
-    
-    // ถ้าไม่ใช่ค่าว่าง ให้แสดงฟอร์ม
-    form.style.display = 'block';
-    form.reset();
-    document.getElementById('ramaID_MR').value = currentUser.ramaID;
-    
-    if (val === 'NEW') {
-      // กรณีสร้างใหม่
-      document.getElementById('rowNumber').value = '';
-    } else {
-      // กรณีอัปเดตงานเก่า
-      const proj = currentProjects[val];
-      document.getElementById('rowNumber').value = proj.rowNumber;
-      
-      // นำข้อมูลเก่ามาใส่ในฟอร์ม (ตามโค้ดเดิมของคุณ)
-      for (let key in proj) {
-        let el = document.getElementById(key);
-        if (el && el.tagName !== 'FILE') {
-          if (el.multiple && proj[key]) {
-            let values = proj[key].toString().split(',').map(s => s.trim());
-            Array.from(el.options).forEach(opt => opt.selected = values.includes(opt.value));
-          } else {
-            el.value = proj[key];
-          }
-        }
-      }
-    }
-    checkLogic(); // ประมวลผลการล็อคช่อง
-  }
-  
-  function showError(msg) {
-    document.getElementById('loadingScreen').style.display = 'none';
-    const errScreen = document.getElementById('errorScreen');
-    errScreen.style.display = 'block';
-    errScreen.innerText = msg;
-  }
 </script>
 </body>
 </html>
