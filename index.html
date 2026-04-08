@@ -15,7 +15,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.07</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.08</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -154,32 +154,62 @@ function populateDropdowns(data) {
     }
 }
     
-    function loadResearch(val) {
-    const form = document.getElementById('research-form');
-    if (!val) {
-        form.style.display = 'none';
-        return;
+// ฟังก์ชันช่วยตั้งค่าให้กับช่องที่ "เลือกได้หลายคน" (Multiple Select)
+    function setMultiSelect(selectId, commaString) {
+        const select = document.getElementById(selectId);
+        if(!select || !commaString) return;
+        
+        // เคลียร์ค่าที่เคยเลือกไว้ก่อน
+        Array.from(select.options).forEach(opt => opt.selected = false);
+
+        // แยกข้อความจาก Sheet ด้วยลูกน้ำ (รองรับทั้งแบบรหัสและแบบชื่อ)
+        const values = commaString.toString().split(',').map(s => s.trim());
+        
+        Array.from(select.options).forEach(opt => {
+            if(values.includes(opt.value) || values.includes(opt.text)) {
+                opt.selected = true;
+            }
+        });
     }
 
-    form.style.display = 'block';
-    
-    if (val === 'new') {
-        // กรณีสร้างใหม่: เคลียร์ค่าว่าง
-        currentData = { ramaID_MR: currentUser.id };
-        document.getElementById('research-form').reset();
-        document.getElementById('ramaID_MR').value = currentUser.id;
-        document.getElementById('Title').readOnly = false;
-    } else {
-        // กรณีโหลดงานเก่า
-        currentData = masterData.researches.find(r => r.rowIndex == val);
-        document.getElementById('Title').value = currentData.Title;
-        document.getElementById('Title').readOnly = true; // งานเก่าห้ามแก้ชื่อเรื่อง (ถ้าต้องการ)
-        document.getElementById('ramaID_MR').value = currentData.ramaID_MR;
-        document.getElementById('ramaID_MS').value = currentData.ramaID_MS;
-        // ... set ค่าอื่นๆ ตามช่องที่มี
+    // ฟังก์ชันดึงข้อมูลมาแสดงใน Form เมื่อเลือก Dropdown
+    function loadResearch(val) {
+        const form = document.getElementById('research-form');
+        
+        // ถ้าไม่เลือกอะไรเลย ให้ซ่อนฟอร์ม
+        if (!val) {
+            form.style.display = 'none';
+            return;
+        }
+
+        form.style.display = 'block'; // แสดงฟอร์ม
+        
+        if (val === 'new') {
+            // กรณี: สร้างงานวิจัยใหม่
+            currentData = { ramaID_MR: currentUser.id };
+            form.reset(); // ล้างข้อมูลเก่า
+            document.getElementById('ramaID_MR').value = currentUser.id;
+            document.getElementById('Title').readOnly = false;
+            
+        } else {
+            // กรณี: โหลดงานวิจัยเก่า
+            currentData = masterData.researches.find(r => r.rowIndex == val);
+            
+            // นำข้อมูลหยอดลงช่อง (ต้องเช็คว่าชื่อหัวคอลัมน์ตรงกับตัวพิมพ์เล็ก/ใหญ่)
+            document.getElementById('Title').value = currentData.Title || "";
+            document.getElementById('Title').readOnly = true; // ล็อคห้ามแก้ชื่อโปรเจกต์
+            
+            document.getElementById('ramaID_MR').value = currentData.ramaID_MR || "";
+            document.getElementById('ramaID_MS').value = currentData.ramaID_MS || "";
+
+            // นำข้อมูลหยอดลงช่อง Multiple Select
+            setMultiSelect('other_research', currentData.other_research);
+            setMultiSelect('other_staff', currentData.other_staff);
+        }
+        
+        // เรียกฟังก์ชันวาดกล่อง Progress (ปุ่มลงเวลา)
+        renderProgress(); 
     }
-    renderProgress();
-}
     
     // ลำดับขั้นตอนการอนุมัติ
     const progressSteps = [
