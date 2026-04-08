@@ -15,7 +15,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.13</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.14</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -345,45 +345,50 @@ function populateDropdowns(data) {
         }
     }    
     
-    // ฟังก์ชันช่วยดึงค่าจากช่องที่เลือกได้หลายคน (Multiple Select)
+// ฟังก์ชันช่วยดึงค่าจากช่องที่เลือกได้หลายคน
     function getMultiValues(selectId) {
         const select = document.getElementById(selectId);
+        if(!select) return "";
         return Array.from(select.selectedOptions).map(opt => opt.value).join(', ');
     }
 
-    // ฟังก์ชันที่หายไป: จัดการข้อมูลก่อนส่งบันทึก
+    // ฟังก์ชันบันทึกข้อมูลแบบรายงานทุกขั้นตอน
     async function saveData() {
-        Swal.fire({ title: 'กำลังบันทึกข้อมูลและอัปโหลดไฟล์...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        
-        // อัปเดตข้อมูลจาก Form ลง Object
-        currentData.Title = document.getElementById('Title').value;
-        
-        const msSelect = document.getElementById('ramaID_MS');
-        currentData.ramaID_MS = msSelect.value;
-        currentData.main_staff = msSelect.options[msSelect.selectedIndex]?.text; // เก็บชื่ออาจารย์ด้วย
-        
-        // ดึงค่าหลายรายการ
-        currentData.other_research = getMultiValues('other_research');
-        currentData.other_staff = getMultiValues('other_staff');
-
-        // ฟังก์ชันช่วยแปลงไฟล์ PDF เป็น Base64
-        const fileToBase64 = (fileInputId) => new Promise((resolve, reject) => {
-            const fileInput = document.getElementById(fileInputId);
-            if (!fileInput || fileInput.files.length === 0) return resolve(null);
-            
-            const reader = new FileReader();
-            reader.readAsDataURL(fileInput.files[0]);
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = error => reject(error);
-        });
-
         try {
-            // อ่านไฟล์ทั้งหมด (ถ้าระบุไฟล์ไว้)
-            currentData.draftLinkBase64 = await fileToBase64('draft_link_file');
-            currentData.ecLinkBase64 = await fileToBase64('file_EC_approve'); // อ้างอิง ID จาก progress render
-            currentData.manuLinkBase64 = await fileToBase64('file_manu_accept'); // อ้างอิง ID จาก progress render
+            Swal.fire({ title: '1. กำลังเตรียมข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            console.log("--- เริ่มกระบวนการบันทึก ---");
 
-            // ส่งข้อมูลไปยัง GAS
+            // รวบรวมข้อมูล
+            currentData.Title = document.getElementById('Title').value;
+            if(!currentData.Title) throw new Error("กรุณากรอกชื่อ Title");
+
+            const msSelect = document.getElementById('ramaID_MS');
+            currentData.ramaID_MS = msSelect.value;
+            currentData.main_staff = msSelect.options[msSelect.selectedIndex]?.text || "";
+            currentData.other_research = getMultiValues('other_research');
+            currentData.other_staff = getMultiValues('other_staff');
+
+            console.log("✅ ข้อมูลจาก Form พร้อม:", currentData);
+
+            // ฟังก์ชันอ่านไฟล์ PDF
+            const fileToBase64 = (fileInputId) => new Promise((resolve, reject) => {
+                const fileInput = document.getElementById(fileInputId);
+                if (!fileInput || fileInput.files.length === 0) return resolve(null);
+                const reader = new FileReader();
+                reader.readAsDataURL(fileInput.files[0]);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+
+            Swal.fire({ title: '2. กำลังจัดการไฟล์แนบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            currentData.draftLinkBase64 = await fileToBase64('draft_link_file');
+            currentData.ecLinkBase64 = await fileToBase64('file_EC_approve');
+            currentData.manuLinkBase64 = await fileToBase64('file_manu_accept');
+            console.log("✅ แปลงไฟล์ PDF เสร็จสิ้น");
+
+            Swal.fire({ title: '3. กำลังส่งขึ้นระบบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            
+            // ส่งข้อมูลไป GAS
             const response = await fetch(GAS_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -393,31 +398,28 @@ function populateDropdowns(data) {
                 })
             });
 
-            const result = await response.json();
+            console.log("✅ ส่งข้อมูลถึง Server แล้ว กำลังรอคำตอบ...");
             
+            // อ่านค่าที่ตอบกลับแบบดิบๆ ก่อน (เผื่อ Server ส่ง Error กลับมาเป็น HTML)
+            const resultText = await response.text(); 
+            console.log("💬 Server ตอบกลับมาว่า:", resultText);
+
+            // แปลงเป็น JSON
+            const result = JSON.parse(resultText); 
+
             if (result.status === 'success') {
-                Swal.fire('สำเร็จ', result.message, 'success').then(() => location.reload());
+                Swal.fire('สำเร็จ!', result.message, 'success').then(() => location.reload());
             } else {
-                Swal.fire('เกิดข้อผิดพลาด', 'บันทึกไม่สำเร็จ', 'error');
+                throw new Error(result.message || 'บันทึกไม่สำเร็จ (ไม่มีข้อความแจ้งจาก Server)');
             }
 
         } catch (error) {
-            console.error(error);
-            Swal.fire('ข้อผิดพลาด', 'การเชื่อมต่อขัดข้อง หรือขนาดไฟล์ใหญ่เกินไป', 'error');
+            console.error("🔥 พังที่จุดนี้:", error);
+            Swal.fire('เกิดข้อผิดพลาด', error.message, 'error');
         }
-    }
-
-    
+    }    
     function stampTime(key) {
         const now = new Date().toLocaleString('th-TH');
         currentData[key] = now;
         renderProgress(); // Re-render เพื่อปลดล็อคข้อต่อไป
     }
-
-    async function saveData() {
-        Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        // ... รวบรวมข้อมูลจาก Form, อ่านไฟล์ PDF เป็น Base64, แล้วส่ง POST ไปยัง GAS
-    }
-</script>
-</body>
-</html>
