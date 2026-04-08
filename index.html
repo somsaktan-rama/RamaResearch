@@ -15,7 +15,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.11</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.12</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -94,51 +94,52 @@ let masterData = {};
 function populateDropdowns(data) {
     try {
         masterData = data;
-        console.log("🔄 กำลังเริ่มหยอดข้อมูลลงหน้าเว็บ...");
+        console.log("🔄 กำลังเริ่มหยอดข้อมูลลงหน้าเว็บด้วยวิธีบังคับเขียนทับ (HTML String)...");
 
         // 1. จัดการ Dropdown งานวิจัย
         const selector = document.getElementById('research-selector');
-        
-        // ล้างค่าเก่าทิ้งให้หมดด้วยวิธีที่ปลอดภัยที่สุด
-        selector.options.length = 0; 
-        selector.add(new Option('-- กรุณาเลือก --', '')); // ใส่ตัวเลือกแรก
+        let researchHTML = '<option value="">-- กรุณาเลือก --</option>'; // สร้างข้อความก้อนแรก
         
         if (data.researches && data.researches.length > 0) {
             data.researches.forEach((res, index) => {
-                // ดึงชื่อโปรเจกต์ (ถ้าไม่มีให้แสดงเป็นลำดับแทน)
+                // ดึงชื่อโปรเจกต์
                 let projectTitle = res.Title || res.title || res.TITLE || `งานวิจัย (ไม่พบชื่อ) แถวที่ ${res.rowIndex}`;
                 let projectValue = res.rowIndex || index;
                 
-                // ใช้คำสั่งระดับแกนกลางของ JS เพื่อยัดตัวเลือกเข้าไป
-                selector.add(new Option(projectTitle, projectValue));
+                // นำมาต่อกันเป็นข้อความ HTML
+                researchHTML += `<option value="${projectValue}">${projectTitle}</option>`;
             });
-            console.log("✅ ยัดชื่อโปรเจกต์ลง Dropdown สำเร็จ!");
         }
         
         // ใส่ตัวเลือกสร้างใหม่ไว้ท้ายสุด
-        selector.add(new Option('+ สร้างงานวิจัยใหม่', 'new'));
+        researchHTML += '<option value="new" class="text-primary fw-bold">+ สร้างงานวิจัยใหม่</option>';
+        
+        // 💥 ท่าไม้ตาย: บังคับยัดข้อความ HTML ทั้งก้อนลงไปทีเดียว
+        selector.innerHTML = researchHTML; 
 
         // 2. จัดการ Main Staff
         const msSelect = document.getElementById('ramaID_MS');
-        msSelect.options.length = 0;
-        msSelect.add(new Option('-- เลือกอาจารย์ที่ปรึกษาหลัก --', ''));
+        let msHTML = '<option value="">-- เลือกอาจารย์ที่ปรึกษาหลัก --</option>';
         if(data.mainStaffs) {
-            data.mainStaffs.forEach(s => msSelect.add(new Option(s.name, s.id)));
+            data.mainStaffs.forEach(s => msHTML += `<option value="${s.id}">${s.name}</option>`);
         }
+        msSelect.innerHTML = msHTML;
 
         // 3. จัดการ Other Research
         const otherResSelect = document.getElementById('other_research');
-        otherResSelect.options.length = 0;
+        let orHTML = '';
         if(data.doctors) {
-            data.doctors.forEach(d => otherResSelect.add(new Option(d.name, d.id)));
+            data.doctors.forEach(d => orHTML += `<option value="${d.id}">${d.name}</option>`);
         }
+        otherResSelect.innerHTML = orHTML;
 
         // 4. จัดการ Other Staff
         const otherStaffSelect = document.getElementById('other_staff');
-        otherStaffSelect.options.length = 0;
+        let osHTML = '';
         if(data.otherStaffs) {
-            data.otherStaffs.forEach(s => otherStaffSelect.add(new Option(s.name, s.id)));
+            data.otherStaffs.forEach(s => osHTML += `<option value="${s.id}">${s.name}</option>`);
         }
+        otherStaffSelect.innerHTML = osHTML;
 
         // แสดงฟอร์มการทำงาน
         document.getElementById('app-section').style.display = 'block';
@@ -146,9 +147,10 @@ function populateDropdowns(data) {
 
     } catch (error) {
         console.error("🔥 เกิดข้อผิดพลาดตอนใส่ข้อมูล:", error);
-        Swal.fire('ข้อผิดพลาด', 'มีปัญหาในการวาดหน้าจอ (ดูรายละเอียดใน Console)', 'error');
+        // เพิ่มการแสดง error.message เพื่อให้เห็นชัดๆ ว่าติดตรงไหน
+        Swal.fire('ข้อผิดพลาด', 'มีปัญหาในการวาดหน้าจอ: ' + error.message, 'error');
     }
-}
+} 
     
 // ฟังก์ชันช่วยตั้งค่าให้กับช่องที่ "เลือกได้หลายคน" (Multiple Select)
     function setMultiSelect(selectId, commaString) {
