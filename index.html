@@ -15,7 +15,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.06</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.07</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -92,61 +92,68 @@
 let masterData = {}; 
 
 function populateDropdowns(data) {
-    masterData = data;
-    const selector = document.getElementById('research-selector');
-    
-    selector.innerHTML = '<option value="">-- กรุณาเลือก --</option><option value="new">+ สร้างงานวิจัยใหม่</option>';
-    data.researches.forEach(res => {
-        let opt = document.createElement('option');
-        opt.value = res.rowIndex; 
-        opt.textContent = res.Title || "งานวิจัยไม่มีชื่อ (แถวที่ " + res.rowIndex + ")";
-        selector.appendChild(opt);
-    });
+    try {
+        masterData = data;
+        
+        // 1. จัดการ Dropdown งานวิจัย
+        const selector = document.getElementById('research-selector');
+        if (!selector) console.error("❌ หาช่อง ID: research-selector ไม่เจอใน HTML");
+        
+        selector.innerHTML = '<option value="">-- กรุณาเลือก --</option><option value="new">+ สร้างงานวิจัยใหม่</option>';
+        
+        if (data.researches && data.researches.length > 0) {
+            data.researches.forEach(res => {
+                let opt = document.createElement('option');
+                opt.value = res.rowIndex;
+                // ถ้าใน Sheet ช่อง Title ว่างเปล่า ให้แสดงเลขแถวแทน
+                opt.textContent = res.Title ? res.Title : `งานวิจัยไม่มีชื่อ (แถวที่ ${res.rowIndex})`;
+                selector.appendChild(opt);
+            });
+        }
 
-    // --- Main Staff ---
-    const msSelect = document.getElementById('ramaID_MS');
-    msSelect.innerHTML = '<option value="">-- เลือกอาจารย์ที่ปรึกษาหลัก --</option>';
-    if(data.mainStaffs.length === 0) {
-        msSelect.innerHTML += '<option disabled>⚠️ ไม่พบข้อมูลอาจารย์ในระบบ</option>';
-    } else {
+        // 2. จัดการ Main Staff
+        const msSelect = document.getElementById('ramaID_MS');
+        if (!msSelect) console.error("❌ หาช่อง ID: ramaID_MS ไม่เจอใน HTML");
+        msSelect.innerHTML = '<option value="">-- เลือกอาจารย์ที่ปรึกษาหลัก --</option>';
+        if(data.mainStaffs.length === 0) msSelect.innerHTML += '<option disabled>⚠️ ไม่พบข้อมูลอาจารย์</option>';
         data.mainStaffs.forEach(s => {
             let opt = document.createElement('option');
             opt.value = s.id; opt.textContent = s.name;
             msSelect.appendChild(opt);
         });
-    }
 
-    // --- Other Research ---
-    const otherResSelect = document.getElementById('other_research');
-    otherResSelect.innerHTML = ''; 
-    if(data.doctors.length === 0) {
-        let opt = document.createElement('option');
-        opt.textContent = '⚠️ ไม่พบข้อมูลแพทย์ในระบบ'; opt.disabled = true;
-        otherResSelect.appendChild(opt);
-    } else {
+        // 3. จัดการ Other Research
+        const otherResSelect = document.getElementById('other_research');
+        if (!otherResSelect) console.error("❌ หาช่อง ID: other_research ไม่เจอใน HTML");
+        otherResSelect.innerHTML = ''; 
+        if(data.doctors.length === 0) otherResSelect.innerHTML = '<option disabled>⚠️ ไม่พบข้อมูลแพทย์</option>';
         data.doctors.forEach(d => {
             let opt = document.createElement('option');
             opt.value = d.id; opt.textContent = d.name;
             otherResSelect.appendChild(opt);
         });
-    }
 
-    // --- Other Staff ---
-    const otherStaffSelect = document.getElementById('other_staff');
-    otherStaffSelect.innerHTML = ''; 
-    if(data.otherStaffs.length === 0) {
-        let opt = document.createElement('option');
-        opt.textContent = '⚠️ ไม่พบข้อมูลอาจารย์ในระบบ'; opt.disabled = true;
-        otherStaffSelect.appendChild(opt);
-    } else {
+        // 4. จัดการ Other Staff
+        const otherStaffSelect = document.getElementById('other_staff');
+        if (!otherStaffSelect) console.error("❌ หาช่อง ID: other_staff ไม่เจอใน HTML");
+        otherStaffSelect.innerHTML = ''; 
+        if(data.otherStaffs.length === 0) otherStaffSelect.innerHTML = '<option disabled>⚠️ ไม่พบข้อมูลอาจารย์</option>';
         data.otherStaffs.forEach(s => {
             let opt = document.createElement('option');
             opt.value = s.id; opt.textContent = s.name;
             otherStaffSelect.appendChild(opt);
         });
+
+        // บังคับให้แสดงส่วนของแอปพลิเคชัน
+        document.getElementById('app-section').style.display = 'block';
+
+    } catch (error) {
+        // ถ้าระบบสะดุด จะเด้งแจ้งเตือนสีแดงทันที
+        console.error("🔥 เกิดข้อผิดพลาดตอนสร้างหน้าเว็บ:", error);
+        Swal.fire('ข้อผิดพลาดบนหน้าเว็บ', 'ไม่สามารถแสดงผลรายชื่อได้ (ดูรายละเอียดใน Console)', 'error');
     }
 }
-
+    
     function loadResearch(val) {
     const form = document.getElementById('research-form');
     if (!val) {
