@@ -51,18 +51,19 @@
                     <label>Main Research (MR)</label>
                     <input type="text" id="ramaID_MR" class="form-control" readonly>
                 </div>
-                <div class="mb-2">
-                    <label>Other Research (แพทย์)</label>
-                    <select id="other_research" class="form-select" multiple></select>
-                </div>
+<div class="mb-2">
+    <label>Other Research (แพทย์ - เลือกได้หลายคน)</label>
+    <select id="other_research" class="form-select" multiple style="min-height: 120px;"></select>
+    <small class="text-muted">PC: กด Ctrl ค้างเพื่อเลือกหลายคน</small>
+</div>
                 <div class="mb-2">
                     <label>Main Staff (MS - อาจารย์ประจำ)</label>
                     <select id="ramaID_MS" class="form-select" required></select>
                 </div>
-                <div class="mb-2">
-                    <label>Other Staff (อาจารย์)</label>
-                    <select id="other_staff" class="form-select" multiple></select>
-                </div>
+<div class="mb-2">
+    <label>Other Staff (อาจารย์ - เลือกได้หลายคน)</label>
+    <select id="other_staff" class="form-select" multiple style="min-height: 120px;"></select>
+</div>
                 <div class="mb-2">
                     <label>แนบไฟล์ Draft (PDF)</label>
                     <input type="file" id="draft_link_file" class="form-control" accept=".pdf">
@@ -94,36 +95,47 @@ function populateDropdowns(data) {
     masterData = data;
     const selector = document.getElementById('research-selector');
     
-    // ล้างรายการเก่า (ยกเว้นอันแรกและสร้างใหม่)
-    selector.innerHTML = '<option value="">-- เลือกงานวิจัยเดิม --</option><option value="new">+ สร้างงานวิจัยใหม่</option>';
-    
-    // ใส่รายการงานวิจัยที่ค้นเจอ
+    // 1. จัดการ Dropdown เลือกรหัสงานวิจัย (หรือสร้างใหม่)
+    selector.innerHTML = '<option value="">-- กรุณาเลือก --</option><option value="new">+ สร้างงานวิจัยใหม่</option>';
     data.researches.forEach(res => {
         let opt = document.createElement('option');
-        opt.value = res.rowIndex; // ใช้เลขแถวเป็น ID ในการอ้างอิง
-        opt.textContent = res.Title || "ไม่มีชื่อเรื่อง";
+        opt.value = res.rowIndex; 
+        opt.textContent = res.Title || "งานวิจัยไม่มีชื่อ (แถวที่ " + res.rowIndex + ")";
         selector.appendChild(opt);
     });
 
-    // เตรียมข้อมูลใน Dropdown ของฟอร์ม
+    // 2. จัดการ Main Staff (MS - เลือก 1 คน)
     const msSelect = document.getElementById('ramaID_MS');
     msSelect.innerHTML = '<option value="">-- เลือกอาจารย์ที่ปรึกษาหลัก --</option>';
     data.mainStaffs.forEach(s => {
-        msSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+        let opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        msSelect.appendChild(opt);
     });
 
+    // 3. จัดการ Other Research (แพทย์ - เลือกหลายคน)
     const otherResSelect = document.getElementById('other_research');
+    otherResSelect.innerHTML = ''; // ล้างค่าเดิมก่อนใส่ใหม่
     data.doctors.forEach(d => {
-        otherResSelect.innerHTML += `<option value="${d.id}">${d.name}</option>`;
+        let opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = d.name;
+        otherResSelect.appendChild(opt);
     });
 
+    // 4. จัดการ Other Staff (อาจารย์ - เลือกหลายคน)
     const otherStaffSelect = document.getElementById('other_staff');
+    otherStaffSelect.innerHTML = ''; // ล้างค่าเดิมก่อนใส่ใหม่
     data.otherStaffs.forEach(s => {
-        otherStaffSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+        let opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        otherStaffSelect.appendChild(opt);
     });
 }
 
-function loadResearch(val) {
+    function loadResearch(val) {
     const form = document.getElementById('research-form');
     if (!val) {
         form.style.display = 'none';
