@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.0</title>
+    <title>Research Rama Tracker v2.1</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -15,7 +15,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.20</h3>
+    <h3 class="text-center mb-4 text-primary">ิดตามงานวิจัยผิวหนัง รามาธิบดี 1.21</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -52,18 +52,24 @@
                     <label>Main Research (MR)</label>
                     <input type="text" id="ramaID_MR" class="form-control" readonly>
                 </div>
+                
                 <div class="mb-2">
-                    <label>Other Research (แพทย์ - เลือกได้หลายคน)</label>
+                    <label class="fw-bold">Other Research (แพทย์)</label>
+                    <div id="other_research_display" class="p-2 border rounded bg-light mb-1" style="display:none; white-space: pre-wrap; font-size: 0.9rem;"></div>
                     <select id="other_research" class="form-select" multiple style="min-height: 100px;"></select>
                 </div>
+
                 <div class="mb-2">
                     <label>Main Staff (MS - อาจารย์ที่ปรึกษาหลัก)</label>
                     <select id="ramaID_MS" class="form-select" required></select>
                 </div>
+                
                 <div class="mb-2">
-                    <label>Other Staff (อาจารย์ - เลือกได้หลายคน)</label>
+                    <label class="fw-bold">Other Staff (อาจารย์)</label>
+                    <div id="other_staff_display" class="p-2 border rounded bg-light mb-1" style="display:none; white-space: pre-wrap; font-size: 0.9rem;"></div>
                     <select id="other_staff" class="form-select" multiple style="min-height: 100px;"></select>
                 </div>
+
                 <div class="mb-2 mt-3 p-2 bg-light border rounded">
                     <label class="fw-bold">📄 แนบไฟล์ Draft Protocol (PDF)</label>
                     <input type="file" id="draft_link_file" class="form-control form-control-sm mt-1" accept=".pdf">
@@ -84,14 +90,13 @@
 </div>
 
 <script>
-    // 🚨 🚨 🚨 อย่าลืมใส่ URL ของ Google Apps Script ของคุณที่นี่ 🚨 🚨 🚨
+    // 🚨 🚨 🚨 ใส่ URL ของ Google Apps Script ของคุณที่นี่ 🚨 🚨 🚨
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbyPuWxqyYQ7ulh0Dyb-fgc29FbtYfoSHtu9MgN-Rih9PKKshHDuiDncC6qZJe6OoGU/exec';
     
     let currentUser = { id: '', ip: '' };
     let masterData = {};
     let currentData = {};
     
-    // โครงสร้างของขั้นตอนการอนุมัติ (Progress)
     const progressSteps = [
         { key: 'protocol_draft', label: 'Protocol Draft', role: 'MR' },
         { key: 'MS_protocol_draft', label: 'MS Protocol Draft', role: 'MS' },
@@ -114,7 +119,6 @@
         { key: 'MS_manu_accept', label: 'MS Final Accept', role: 'MS' }
     ];
 
-    // --- 1. ปลดล็อคหน้าจอเมื่อโหลดเว็บเสร็จ ---
     window.onload = async function() {
         try {
             if (!navigator.userAgent.includes("LINE")) {
@@ -134,7 +138,6 @@
         document.getElementById('login-btn').disabled = false;
     }
 
-    // --- 2. ฟังก์ชันล็อกอิน และดึงข้อมูล ---
     function login() {
         const id = document.getElementById('login-ramaid').value.trim();
         if (!id) return Swal.fire('แจ้งเตือน', 'กรุณาระบุ Rama ID', 'warning');
@@ -148,27 +151,22 @@
             .then(res => res.json())
             .then(data => {
                 if(data.error) return Swal.fire('เกิดข้อผิดพลาด', data.error, 'error');
-
                 if(data.currentUserName === "ไม่พบชื่อในระบบ") {
                     document.getElementById('login-ramaid').value = ''; 
                     return Swal.fire('ไม่อนุญาต', 'ไม่พบ Rama ID นี้ในระบบ', 'warning');
                 }
-
                 document.getElementById('display-username').innerText = data.currentUserName;
                 populateDropdowns(data);
-                
             }).catch(err => {
                 console.error(err);
-                Swal.fire('Error', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาเช็ค URL ของ Web App', 'error');
+                Swal.fire('Error', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
             });
     }
 
-    // --- 3. ฟังก์ชันวาด Dropdown แบบขั้นเด็ดขาด (ป้องกันบั๊กบนมือถือ) ---
     function populateDropdowns(data) {
         try {
             masterData = data;
             
-            // Research Selector
             let researchHTML = '<option value="">-- กรุณาเลือก --</option>'; 
             if (data.researches && data.researches.length > 0) {
                 data.researches.forEach((res, i) => {
@@ -180,41 +178,41 @@
             researchHTML += '<option value="new" class="text-primary fw-bold">+ สร้างงานวิจัยใหม่</option>';
             document.getElementById('research-selector').innerHTML = researchHTML; 
 
-            // Main Staff
             let msHTML = '<option value="">-- เลือกอาจารย์ที่ปรึกษาหลัก --</option>';
             if(data.mainStaffs) data.mainStaffs.forEach(s => msHTML += `<option value="${s.id}">${s.name}</option>`);
             document.getElementById('ramaID_MS').innerHTML = msHTML;
 
-            // Other Research
             let orHTML = '';
             if(data.doctors) data.doctors.forEach(d => orHTML += `<option value="${d.id}">${d.name}</option>`);
             document.getElementById('other_research').innerHTML = orHTML;
 
-            // Other Staff
             let osHTML = '';
             if(data.otherStaffs) data.otherStaffs.forEach(s => osHTML += `<option value="${s.id}">${s.name}</option>`);
             document.getElementById('other_staff').innerHTML = osHTML;
 
-            // สลับหน้าจอมาที่แอปพลิเคชัน
             document.getElementById('login-section').style.display = 'none';
             document.getElementById('app-section').style.display = 'block';
             Swal.close(); 
-
         } catch (error) {
             console.error(error);
             Swal.fire('ข้อผิดพลาด', 'แสดงผล Dropdown ไม่สำเร็จ', 'error');
         }
     }
 
-    // --- 4. ฟังก์ชันจัดการเมื่อเลือกงานวิจัย ---
-    function setMultiSelect(selectId, commaString) {
+    // ฟังก์ชันใหม่: สลับการแสดงผล โชว์ข้อความ หรือ โชว์ Dropdown
+    function toggleDropdownVisibility(fieldKey, selectId, displayId) {
         const select = document.getElementById(selectId);
-        if(!select || !commaString) return;
-        Array.from(select.options).forEach(opt => opt.selected = false);
-        const values = commaString.toString().split(',').map(s => s.trim());
-        Array.from(select.options).forEach(opt => {
-            if(values.includes(opt.value) || values.includes(opt.text)) opt.selected = true;
-        });
+        const display = document.getElementById(displayId);
+        const value = currentData[fieldKey];
+
+        if (value && value.toString().trim() !== "") {
+            display.innerText = value;
+            display.style.display = 'block';
+            select.style.display = 'none';
+        } else {
+            display.style.display = 'none';
+            select.style.display = 'block';
+        }
     }
 
     function loadResearch(val) {
@@ -228,19 +226,24 @@
             form.reset(); 
             document.getElementById('ramaID_MR').value = currentUser.id;
             document.getElementById('Title').readOnly = false;
+            
+            // งานวิจัยใหม่ ให้โชว์ Dropdown ให้เลือกคนเสมอ
+            toggleDropdownVisibility('other_research', 'other_research', 'other_research_display');
+            toggleDropdownVisibility('other_staff', 'other_staff', 'other_staff_display');
         } else {
             currentData = masterData.researches.find(r => r.rowIndex == val);
             document.getElementById('Title').value = currentData.Title || "";
             document.getElementById('Title').readOnly = true; 
             document.getElementById('ramaID_MR').value = currentData.ramaID_MR || "";
             document.getElementById('ramaID_MS').value = currentData.ramaID_MS || "";
-            setMultiSelect('other_research', currentData.other_research);
-            setMultiSelect('other_staff', currentData.other_staff);
+            
+            // เช็คว่ามีข้อมูลเดิมไหม ถ้ามีก็โชว์ข้อความ ถ้าไม่มีก็โชว์ Dropdown
+            toggleDropdownVisibility('other_research', 'other_research', 'other_research_display');
+            toggleDropdownVisibility('other_staff', 'other_staff', 'other_staff_display');
         }
         renderProgress(); 
     }
 
-    // --- 5. ฟังก์ชันวาดปุ่มลงเวลา (Progress) ---
     function renderProgress() {
         const container = document.getElementById('progress-container');
         container.innerHTML = '';
@@ -248,7 +251,6 @@
         
         progressSteps.forEach((step) => {
             const isFilled = currentData[step.key] ? true : false;
-            // เช็คว่าเป็นงานของคนล็อกอินหรือไม่
             const isMyRole = (step.role === 'MR' && currentUser.id == currentData.ramaID_MR) || 
                              (step.role === 'MS' && currentUser.id == currentData.ramaID_MS);
             
@@ -265,7 +267,6 @@
                 </div>
             `;
             
-            // ช่องอัปโหลดไฟล์ (โชว์เฉพาะเมื่อถึงคิวลงเวลา และมีกำหนดให้อัปโหลด)
             if(step.hasFile && previousFilled && isMyRole && !isFilled) {
                 html += `<div class="mt-2"><input type="file" id="file_${step.key}" class="form-control form-control-sm" accept=".pdf"></div>`;
             }
@@ -283,28 +284,32 @@
         renderProgress(); 
     }
 
-    // --- 6. ฟังก์ชันบันทึกข้อมูลแบบรายงานสถานะ ---
+    // ฟังก์ชันใหม่: ดึงชื่อคนที่ถูกเลือก คั่นด้วยการขึ้นบรรทัดใหม่
     function getMultiValues(selectId) {
         const select = document.getElementById(selectId);
-        if(!select) return "";
-        return Array.from(select.selectedOptions).map(opt => opt.value).join(', ');
+        // ถ้าช่องเลือกถูกซ่อนอยู่ แสดงว่ามีข้อมูลเดิมแล้ว ห้ามส่งค่าว่างไปทับ
+        if(!select || select.style.display === 'none') return null; 
+        return Array.from(select.selectedOptions).map(opt => opt.text).join('\n');
     }
 
     async function saveData() {
         try {
             Swal.fire({ title: '1. กำลังเตรียมข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             
-            // รวบรวมข้อมูล
             currentData.Title = document.getElementById('Title').value;
             if(!currentData.Title) throw new Error("กรุณาระบุชื่อเรื่อง (Title)");
 
             const msSelect = document.getElementById('ramaID_MS');
             currentData.ramaID_MS = msSelect.value;
             currentData.main_staff = msSelect.options[msSelect.selectedIndex]?.text || "";
-            currentData.other_research = getMultiValues('other_research');
-            currentData.other_staff = getMultiValues('other_staff');
+            
+            // ดึงค่า Other Research และ Other Staff แบบใหม่
+            const newOtherRes = getMultiValues('other_research');
+            if (newOtherRes !== null) currentData.other_research = newOtherRes;
 
-            // ฟังก์ชันแปลงไฟล์เป็น Base64
+            const newOtherStaff = getMultiValues('other_staff');
+            if (newOtherStaff !== null) currentData.other_staff = newOtherStaff;
+
             const fileToBase64 = (fileInputId) => new Promise((resolve, reject) => {
                 const fileInput = document.getElementById(fileInputId);
                 if (!fileInput || fileInput.files.length === 0) return resolve(null);
@@ -321,7 +326,6 @@
 
             Swal.fire({ title: '3. กำลังส่งขึ้นระบบฐานข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             
-            // ส่ง POST Request
             const response = await fetch(GAS_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
