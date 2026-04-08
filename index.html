@@ -95,7 +95,6 @@ function populateDropdowns(data) {
     masterData = data;
     const selector = document.getElementById('research-selector');
     
-    // 1. จัดการ Dropdown เลือกรหัสงานวิจัย (หรือสร้างใหม่)
     selector.innerHTML = '<option value="">-- กรุณาเลือก --</option><option value="new">+ สร้างงานวิจัยใหม่</option>';
     data.researches.forEach(res => {
         let opt = document.createElement('option');
@@ -104,35 +103,48 @@ function populateDropdowns(data) {
         selector.appendChild(opt);
     });
 
-    // 2. จัดการ Main Staff (MS - เลือก 1 คน)
+    // --- Main Staff ---
     const msSelect = document.getElementById('ramaID_MS');
     msSelect.innerHTML = '<option value="">-- เลือกอาจารย์ที่ปรึกษาหลัก --</option>';
-    data.mainStaffs.forEach(s => {
-        let opt = document.createElement('option');
-        opt.value = s.id;
-        opt.textContent = s.name;
-        msSelect.appendChild(opt);
-    });
+    if(data.mainStaffs.length === 0) {
+        msSelect.innerHTML += '<option disabled>⚠️ ไม่พบข้อมูลอาจารย์ในระบบ</option>';
+    } else {
+        data.mainStaffs.forEach(s => {
+            let opt = document.createElement('option');
+            opt.value = s.id; opt.textContent = s.name;
+            msSelect.appendChild(opt);
+        });
+    }
 
-    // 3. จัดการ Other Research (แพทย์ - เลือกหลายคน)
+    // --- Other Research ---
     const otherResSelect = document.getElementById('other_research');
-    otherResSelect.innerHTML = ''; // ล้างค่าเดิมก่อนใส่ใหม่
-    data.doctors.forEach(d => {
+    otherResSelect.innerHTML = ''; 
+    if(data.doctors.length === 0) {
         let opt = document.createElement('option');
-        opt.value = d.id;
-        opt.textContent = d.name;
+        opt.textContent = '⚠️ ไม่พบข้อมูลแพทย์ในระบบ'; opt.disabled = true;
         otherResSelect.appendChild(opt);
-    });
+    } else {
+        data.doctors.forEach(d => {
+            let opt = document.createElement('option');
+            opt.value = d.id; opt.textContent = d.name;
+            otherResSelect.appendChild(opt);
+        });
+    }
 
-    // 4. จัดการ Other Staff (อาจารย์ - เลือกหลายคน)
+    // --- Other Staff ---
     const otherStaffSelect = document.getElementById('other_staff');
-    otherStaffSelect.innerHTML = ''; // ล้างค่าเดิมก่อนใส่ใหม่
-    data.otherStaffs.forEach(s => {
+    otherStaffSelect.innerHTML = ''; 
+    if(data.otherStaffs.length === 0) {
         let opt = document.createElement('option');
-        opt.value = s.id;
-        opt.textContent = s.name;
+        opt.textContent = '⚠️ ไม่พบข้อมูลอาจารย์ในระบบ'; opt.disabled = true;
         otherStaffSelect.appendChild(opt);
-    });
+    } else {
+        data.otherStaffs.forEach(s => {
+            let opt = document.createElement('option');
+            opt.value = s.id; opt.textContent = s.name;
+            otherStaffSelect.appendChild(opt);
+        });
+    }
 }
 
     function loadResearch(val) {
