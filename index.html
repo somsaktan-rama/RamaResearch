@@ -233,16 +233,18 @@ function fetchInitialData() {
         fetch(`${GAS_URL}?action=getInitialData&ramaID=${currentUser.id}`)
             .then(res => res.json())
             .then(data => {
-                
-                // 🛑 เพิ่มบรรทัดนี้เพื่อแอบดูข้อมูลหลังบ้าน!
-                console.log("ข้อมูลที่ดึงมาได้:", data); 
+                // ถ้ามี Error ส่งมาจากหลังบ้าน ให้เด้งเตือนเลย!
+                if(data.error) {
+                    console.log("Headers ที่ระบบเห็น:", data.foundHeaders);
+                    return Swal.fire('เกิดข้อผิดพลาดใน Sheet', data.error, 'error');
+                }
 
                 document.getElementById('display-username').innerText = data.currentUserName;
                 populateDropdowns(data);
                 Swal.close();
             }).catch(() => Swal.fire('Error', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error'));
     }
-
+    
     // ฟังก์ชันช่วยดึงค่าจากช่องที่เลือกได้หลายคน (Multiple Select)
     function getMultiValues(selectId) {
         const select = document.getElementById(selectId);
