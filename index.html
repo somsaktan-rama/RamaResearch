@@ -29,6 +29,9 @@
     </div>
 
     <div id="app-section" style="display:none;">
+        <div class="alert alert-info py-2 mb-3">
+            👤 ผู้ใช้งาน: <span id="display-username" class="fw-bold"></span>
+        </div>
         <div class="mb-3">
             <label class="form-label fw-bold">เลือกงานวิจัย</label>
             <select id="research-selector" class="form-select" onchange="loadResearch(this.value)">
@@ -59,6 +62,10 @@
                 <div class="mb-2">
                     <label>Other Staff (อาจารย์)</label>
                     <select id="other_staff" class="form-select" multiple></select>
+                </div>
+                <div class="mb-2">
+                    <label>แนบไฟล์ Draft (PDF)</label>
+                    <input type="file" id="draft_link_file" class="form-control" accept=".pdf">
                 </div>
             </div>
 
@@ -197,14 +204,78 @@ function loadResearch(val) {
         fetchInitialData();
     }
 
-    function fetchInitialData() {
+function fetchInitialData() {
         Swal.fire({ title: 'กำลังโหลดข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         fetch(`${GAS_URL}?action=getInitialData&ramaID=${currentUser.id}`)
             .then(res => res.json())
             .then(data => {
+                // แสดงชื่อคนล็อกอิน
+                document.getElementById('display-username').innerText = data.currentUserName;
                 populateDropdowns(data);
                 Swal.close();
             }).catch(() => Swal.fire('Error', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error'));
+    }
+
+    // ฟังก์ชันช่วยดึงค่าจากช่องที่เลือกได้หลายคน (Multiple Select)
+    function getMultiValues(selectId) {
+        const select = document.getElementById(selectId);
+        return Array.from(select.selectedOptions).map(opt => opt.value).join(', ');
+    }
+
+    // ฟังก์ชันที่หายไป: จัดการข้อมูลก่อนส่งบันทึก
+    async function saveData() {
+        Swal.fire({ title: 'กำลังบันทึกข้อมูลและอัปโหลดไฟล์...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        
+        // อัปเดตข้อมูลจาก Form ลง Object
+        currentData.Title = document.getElementById('Title').value;
+        
+        const msSelect = document.getElementById('ramaID_MS');
+        currentData.ramaID_MS = msSelect.value;
+        currentData.main_staff = msSelect.options[msSelect.selectedIndex]?.text; // เก็บชื่ออาจารย์ด้วย
+        
+        // ดึงค่าหลายรายการ
+        currentData.other_research = getMultiValues('other_research');
+        currentData.other_staff = getMultiValues('other_staff');
+
+        // ฟังก์ชันช่วยแปลงไฟล์ PDF เป็น Base64
+        const fileToBase64 = (fileInputId) => new Promise((resolve, reject) => {
+            const fileInput = document.getElementById(fileInputId);
+            if (!fileInput || fileInput.files.length === 0) return resolve(null);
+            
+            const reader = new FileReader();
+            reader.readAsDataURL(fileInput.files[0]);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+
+        try {
+            // อ่านไฟล์ทั้งหมด (ถ้าระบุไฟล์ไว้)
+            currentData.draftLinkBase64 = await fileToBase64('draft_link_file');
+            currentData.ecLinkBase64 = await fileToBase64('file_EC_approve'); // อ้างอิง ID จาก progress render
+            currentData.manuLinkBase64 = await fileToBase64('file_manu_accept'); // อ้างอิง ID จาก progress render
+
+            // ส่งข้อมูลไปยัง GAS
+            const response = await fetch(GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    action: 'saveResearch',
+                    payload: currentData
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                Swal.fire('สำเร็จ', result.message, 'success').then(() => location.reload());
+            } else {
+                Swal.fire('เกิดข้อผิดพลาด', 'บันทึกไม่สำเร็จ', 'error');
+            }
+
+        } catch (error) {
+            console.error(error);
+            Swal.fire('ข้อผิดพลาด', 'การเชื่อมต่อขัดข้อง หรือขนาดไฟล์ใหญ่เกินไป', 'error');
+        }
     }
 
     function populateDropdowns(data) {
