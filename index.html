@@ -15,7 +15,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.10</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.11</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -94,60 +94,62 @@ let masterData = {};
 function populateDropdowns(data) {
     try {
         masterData = data;
-        
+        console.log("🔄 กำลังเริ่มหยอดข้อมูลลงหน้าเว็บ...");
+
         // 1. จัดการ Dropdown งานวิจัย
         const selector = document.getElementById('research-selector');
-        selector.innerHTML = '<option value="">-- กรุณาเลือก --</option><option value="new">+ สร้างงานวิจัยใหม่</option>';
+        
+        // ล้างค่าเก่าทิ้งให้หมดด้วยวิธีที่ปลอดภัยที่สุด
+        selector.options.length = 0; 
+        selector.add(new Option('-- กรุณาเลือก --', '')); // ใส่ตัวเลือกแรก
         
         if (data.researches && data.researches.length > 0) {
-            let count = 0;
-            data.researches.forEach(res => {
-                // ระบบค้นหาชื่อโปรเจกต์แบบยืดหยุ่น (ดักจับทั้ง Title, title, TITLE)
-                let projectTitle = res.Title || res.title || res.TITLE || `งานวิจัยแถวที่ ${res.rowIndex}`;
+            data.researches.forEach((res, index) => {
+                // ดึงชื่อโปรเจกต์ (ถ้าไม่มีให้แสดงเป็นลำดับแทน)
+                let projectTitle = res.Title || res.title || res.TITLE || `งานวิจัย (ไม่พบชื่อ) แถวที่ ${res.rowIndex}`;
+                let projectValue = res.rowIndex || index;
                 
-                let opt = document.createElement('option');
-                opt.value = res.rowIndex;
-                opt.textContent = projectTitle;
-                selector.appendChild(opt);
-                count++;
+                // ใช้คำสั่งระดับแกนกลางของ JS เพื่อยัดตัวเลือกเข้าไป
+                selector.add(new Option(projectTitle, projectValue));
             });
-            console.log(`✅ วาดตัวเลือกงานวิจัยสำเร็จ ${count} รายการ`);
+            console.log("✅ ยัดชื่อโปรเจกต์ลง Dropdown สำเร็จ!");
+        }
+        
+        // ใส่ตัวเลือกสร้างใหม่ไว้ท้ายสุด
+        selector.add(new Option('+ สร้างงานวิจัยใหม่', 'new'));
+
+        // 2. จัดการ Main Staff
+        const msSelect = document.getElementById('ramaID_MS');
+        msSelect.options.length = 0;
+        msSelect.add(new Option('-- เลือกอาจารย์ที่ปรึกษาหลัก --', ''));
+        if(data.mainStaffs) {
+            data.mainStaffs.forEach(s => msSelect.add(new Option(s.name, s.id)));
         }
 
-        // 2. จัดการ Main Staff (อาจารย์ที่ปรึกษา)
-        const msSelect = document.getElementById('ramaID_MS');
-        msSelect.innerHTML = '<option value="">-- เลือกอาจารย์ที่ปรึกษาหลัก --</option>';
-        data.mainStaffs.forEach(s => {
-            let opt = document.createElement('option');
-            opt.value = s.id; opt.textContent = s.name;
-            msSelect.appendChild(opt);
-        });
-
-        // 3. จัดการ Other Research (แพทย์)
+        // 3. จัดการ Other Research
         const otherResSelect = document.getElementById('other_research');
-        otherResSelect.innerHTML = ''; 
-        data.doctors.forEach(d => {
-            let opt = document.createElement('option');
-            opt.value = d.id; opt.textContent = d.name;
-            otherResSelect.appendChild(opt);
-        });
+        otherResSelect.options.length = 0;
+        if(data.doctors) {
+            data.doctors.forEach(d => otherResSelect.add(new Option(d.name, d.id)));
+        }
 
-        // 4. จัดการ Other Staff (อาจารย์)
+        // 4. จัดการ Other Staff
         const otherStaffSelect = document.getElementById('other_staff');
-        otherStaffSelect.innerHTML = ''; 
-        data.otherStaffs.forEach(s => {
-            let opt = document.createElement('option');
-            opt.value = s.id; opt.textContent = s.name;
-            otherStaffSelect.appendChild(opt);
-        });
+        otherStaffSelect.options.length = 0;
+        if(data.otherStaffs) {
+            data.otherStaffs.forEach(s => otherStaffSelect.add(new Option(s.name, s.id)));
+        }
 
         // แสดงฟอร์มการทำงาน
         document.getElementById('app-section').style.display = 'block';
+        console.log("🎉 กระบวนการวาดหน้าเว็บเสร็จสมบูรณ์ 100%");
 
     } catch (error) {
-        console.error("🔥 เกิดข้อผิดพลาดตอนใส่ข้อมูลลง Dropdown:", error);
+        console.error("🔥 เกิดข้อผิดพลาดตอนใส่ข้อมูล:", error);
+        Swal.fire('ข้อผิดพลาด', 'มีปัญหาในการวาดหน้าจอ (ดูรายละเอียดใน Console)', 'error');
     }
-}    
+}
+    
 // ฟังก์ชันช่วยตั้งค่าให้กับช่องที่ "เลือกได้หลายคน" (Multiple Select)
     function setMultiSelect(selectId, commaString) {
         const select = document.getElementById(selectId);
