@@ -418,6 +418,8 @@ function populateDropdowns(data) {
             Swal.fire('เกิดข้อผิดพลาด', error.message, 'error');
         }
     }    
+    
+    
     function stampTime(key) {
         const now = new Date().toLocaleString('th-TH');
         currentData[key] = now;
