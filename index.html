@@ -15,15 +15,15 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.12</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.13</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
             <span id="login-status" class="text-warning fw-bold">กำลังเตรียมความพร้อมระบบ...</span>
         </div>
         <div class="mb-3">
-            <label class="form-label">Rama ID (สำหรับการทดสอบ)</label>
-            <input type="text" id="login-ramaid" class="form-control" placeholder="ระบุ Rama ID ของคุณ">
+            <label class="form-label">Rama ID</label>
+            <input type="tel" id="login-ramaid" class="form-control" placeholder="ระบุ Rama ID ของคุณ" inputmode="numeric" pattern="[0-9]*">
         </div>
         <button id="login-btn" class="btn btn-primary w-100" onclick="login()" disabled>เข้าสู่ระบบ</button>
     </div>
@@ -253,38 +253,97 @@ function populateDropdowns(data) {
         document.getElementById('login-btn').disabled = false;
     }
 
+// 1. ฟังก์ชันล็อกอิน (แก้ไม่ให้รีบสลับหน้าจอ)
     function login() {
         const id = document.getElementById('login-ramaid').value;
         if (!id) return Swal.fire('แจ้งเตือน', 'กรุณาระบุ Rama ID', 'warning');
         currentUser.id = id;
         
-        document.getElementById('login-section').style.display = 'none';
-        document.getElementById('app-section').style.display = 'block';
+        // 🛑 เอาคำสั่งสลับหน้าจอออกไปจากตรงนี้ แล้วไปรันดึงข้อมูลเลย
         fetchInitialData();
     }
 
-function fetchInitialData() {
-        Swal.fire({ title: 'กำลังโหลดข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    // 2. ฟังก์ชันดึงและตรวจสิทธิ์ (ดักจับรหัสผ่านมั่ว)
+    function fetchInitialData() {
+        Swal.fire({ title: 'กำลังตรวจสอบข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         fetch(`${GAS_URL}?action=getInitialData&ramaID=${currentUser.id}`)
             .then(res => res.json())
             .then(data => {
-                
-                // 🕵️‍♂️ สแกนข้อมูลงานวิจัยแบบเจาะลึก
-                console.log("📦 ไส้ในของงานวิจัยที่หาเจอ:", data.researches);
-                
-                // เช็คว่าหาช่อง Dropdown บนหน้าเว็บเจอไหม
-                const selector = document.getElementById('research-selector');
-                console.log("🎯 หาช่อง Dropdown เจอหรือไม่:", selector ? "เจอ" : "ไม่เจอ");
+                // เช็ค Error จากหลังบ้าน
+                if(data.error) return Swal.fire('เกิดข้อผิดพลาด', data.error, 'error');
 
-                if(data.error) {
-                    return Swal.fire('เกิดข้อผิดพลาดใน Sheet', data.error, 'error');
+                // 🛑 ดักจับ: ถ้าไม่พบชื่อในระบบ ให้เด้งออกและหยุดทำงานทันที!
+                if(data.currentUserName === "ไม่พบชื่อในระบบ") {
+                    document.getElementById('login-ramaid').value = ''; // เคลียร์ช่อง
+                    return Swal.fire('ไม่อนุญาต', 'ไม่พบ Rama ID นี้ในระบบ กรุณาตรวจสอบความถูกต้อง', 'warning');
                 }
 
+                // ถ้ารหัสถูกต้อง ค่อยเอาชื่อมาแสดง และเตรียมข้อมูล
                 document.getElementById('display-username').innerText = data.currentUserName;
                 populateDropdowns(data);
-                Swal.close();
-            }).catch(() => Swal.fire('Error', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error'));
+                
+            }).catch(err => {
+                console.error(err);
+                Swal.fire('Error', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+            });
     }
+
+    // 3. ฟังก์ชันยัดข้อมูลลง Dropdown (ยัดให้เสร็จก่อน ค่อยโชว์หน้าจอ)
+    function populateDropdowns(data) {
+        try {
+            masterData = data;
+            
+            // --- จัดการ Dropdown งานวิจัย ---
+            const selector = document.getElementById('research-selector');
+            
+            // เคลียร์ข้อมูลเก่าด้วยวิธีชัวร์ที่สุด
+            while (selector.options.length > 0) { selector.remove(0); }
+            
+            selector.add(new Option('-- กรุณาเลือก --', ''));
+            
+            if (data.researches && data.researches.length > 0) {
+                for (let i = 0; i < data.researches.length; i++) {
+                    let res = data.researches[i];
+                    let title = res.Title || res.title || res.TITLE || `โปรเจกต์แถวที่ ${res.rowIndex}`;
+                    let val = res.rowIndex || i;
+                    selector.add(new Option(title, val));
+                }
+            }
+            selector.add(new Option('+ สร้างงานวิจัยใหม่', 'new'));
+
+            // --- จัดการ Main Staff ---
+            const msSelect = document.getElementById('ramaID_MS');
+            while (msSelect.options.length > 0) { msSelect.remove(0); }
+            msSelect.add(new Option('-- เลือกอาจารย์ที่ปรึกษาหลัก --', ''));
+            if(data.mainStaffs) {
+                data.mainStaffs.forEach(s => msSelect.add(new Option(s.name, s.id)));
+            }
+
+            // --- จัดการ Other Research ---
+            const otherResSelect = document.getElementById('other_research');
+            while (otherResSelect.options.length > 0) { otherResSelect.remove(0); }
+            if(data.doctors) {
+                data.doctors.forEach(d => otherResSelect.add(new Option(d.name, d.id)));
+            }
+
+            // --- จัดการ Other Staff ---
+            const otherStaffSelect = document.getElementById('other_staff');
+            while (otherStaffSelect.options.length > 0) { otherStaffSelect.remove(0); }
+            if(data.otherStaffs) {
+                data.otherStaffs.forEach(s => otherStaffSelect.add(new Option(s.name, s.id)));
+            }
+
+            // 🌟 🌟 🌟 จุดสำคัญ: สลับหน้าจอ "หลังจาก" ยัดข้อมูลเสร็จแล้วเท่านั้น! 🌟 🌟 🌟
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('app-section').style.display = 'block';
+            
+            Swal.close(); // ปิดหน้าต่างโหลด
+
+        } catch (error) {
+            console.error("🔥 Error in populateDropdowns:", error);
+            Swal.fire('ข้อผิดพลาด', 'แสดงผล Dropdown ไม่สำเร็จ: ' + error.message, 'error');
+        }
+    }    
     
     // ฟังก์ชันช่วยดึงค่าจากช่องที่เลือกได้หลายคน (Multiple Select)
     function getMultiValues(selectId) {
@@ -348,48 +407,7 @@ function fetchInitialData() {
         }
     }
 
-    function populateDropdowns(data) {
-        // ... (โค้ดจัดการนำ data.doctors, data.mainStaffs ไปใส่ใน <select>)
-        // รายละเอียดการยัดข้อมูลลง Dropdown และสร้างรายการ Progress
-    }
-
-    // ฟังก์ชันสร้าง UI สำหรับ Progress แบบเช็คคิว
-    function renderProgress() {
-        const container = document.getElementById('progress-container');
-        container.innerHTML = '';
-        
-        let previousFilled = true; // ควบคุมไม่ให้ข้ามช่อง
-        
-        progressSteps.forEach((step, index) => {
-            const isFilled = currentData[step.key] ? true : false;
-            const isMyRole = (step.role === 'MR' && currentUser.id == currentData.ramaID_MR) || 
-                             (step.role === 'MS' && currentUser.id == currentData.ramaID_MS);
-            
-            const lockedClass = (!previousFilled || !isMyRole) ? 'step-locked' : '';
-            
-            let html = `
-            <div class="card p-2 step-card ${lockedClass}">
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="fw-bold">${step.label} (${step.role})</span>
-                    <button type="button" class="btn btn-sm ${isFilled ? 'btn-success' : 'btn-outline-primary'}"
-                        onclick="stampTime('${step.key}')" ${!previousFilled || !isMyRole ? 'disabled' : ''}>
-                        ${isFilled ? currentData[step.key] : 'กดเพื่อลงเวลา'}
-                    </button>
-                </div>
-            `;
-            
-            // เพิ่มช่องอัปโหลด PDF ถ้าถึงสเต็ปที่กำหนด
-            if(step.hasFile && previousFilled && isMyRole && !isFilled) {
-                html += `<input type="file" id="file_${step.key}" class="form-control form-control-sm mt-2" accept=".pdf">`;
-            }
-            
-            html += `</div>`;
-            container.innerHTML += html;
-            
-            if (!isFilled) previousFilled = false; // ถ้าสเต็ปนี้ยังไม่ทำ สเต็ปต่อไปจะถูกล็อค
-        });
-    }
-
+    
     function stampTime(key) {
         const now = new Date().toLocaleString('th-TH');
         currentData[key] = now;
