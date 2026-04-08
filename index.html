@@ -15,7 +15,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.14</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.15</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -88,6 +88,39 @@
     let currentUser = { id: '', role: '', ip: '' };
     let currentData = {};
 
+// โค้ดส่วนนี้จะทำงานทันทีที่โหลดหน้าเว็บเสร็จ
+    window.onload = async function() {
+        try {
+            // ถ้าไม่ได้เปิดจาก LINE ให้ลองดึง IP ดู
+            if (!navigator.userAgent.includes("LINE")) {
+                let response = await fetch('https://api.ipify.org?format=json').catch(() => null);
+                if(response) {
+                    let data = await response.json();
+                    currentUser.ip = data.ip; 
+                }
+            }
+        } catch(e) { 
+            console.log("ดึง IP ไม่สำเร็จ แต่ระบบจะทำงานต่อ", e); 
+        } finally {
+            // สำคัญที่สุด: ไม่ว่าจะดึง IP ได้หรือไม่ ต้องสั่งปลดล็อคหน้าจอเสมอ!
+            enableLogin();
+        }
+    };
+
+    // ฟังก์ชันสำหรับปลดล็อคปุ่มและเปลี่ยนข้อความ
+    function enableLogin() {
+        const statusEl = document.getElementById('login-status');
+        const btnEl = document.getElementById('login-btn');
+        
+        if(statusEl) {
+            statusEl.innerText = "✅ พร้อมใช้งาน" + (currentUser.ip ? ` (IP: ${currentUser.ip})` : "");
+            statusEl.className = "text-success fw-bold";
+        }
+        if(btnEl) {
+            btnEl.disabled = false; // ปลดล็อคปุ่มให้กดได้
+        }
+    }    
+    
 // เก็บข้อมูลที่โหลดมาจาก Server
 let masterData = {}; 
 
@@ -232,26 +265,6 @@ function populateDropdowns(data) {
         { key: 'MS_manu_accept', label: 'MS Final Accept', role: 'MS' }
     ];
 
-    // หน่วงเวลาเตรียมระบบและดึง IP หากใช้ PC
-    window.onload = async function() {
-        if (!navigator.userAgent.includes("LINE")) {
-            try {
-                let response = await fetch('https://api.ipify.org?format=json');
-                let data = await response.json();
-                currentUser.ip = data.ip; 
-            } catch(e) { console.log("IP fetch failed"); }
-            enableLogin();
-        } else {
-            // จำลอง Delay สำหรับ LINE LIFF 
-            setTimeout(() => { enableLogin(); }, 1500);
-        }
-    };
-
-    function enableLogin() {
-        document.getElementById('login-status').innerText = "✅ พร้อมใช้งาน" + (currentUser.ip ? ` (IP: ${currentUser.ip})` : "");
-        document.getElementById('login-status').className = "text-success fw-bold";
-        document.getElementById('login-btn').disabled = false;
-    }
 
 // 1. ฟังก์ชันล็อกอิน (แก้ไม่ให้รีบสลับหน้าจอ)
     function login() {
