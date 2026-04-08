@@ -15,7 +15,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.08</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.09</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -270,14 +270,17 @@ function fetchInitialData() {
         fetch(`${GAS_URL}?action=getInitialData&ramaID=${currentUser.id}`)
             .then(res => res.json())
             .then(data => {
+                
+                // 🕵️‍♂️ สแกนข้อมูลงานวิจัยแบบเจาะลึก
+                console.log("📦 ไส้ในของงานวิจัยที่หาเจอ:", data.researches);
+                
+                // เช็คว่าหาช่อง Dropdown บนหน้าเว็บเจอไหม
+                const selector = document.getElementById('research-selector');
+                console.log("🎯 หาช่อง Dropdown เจอหรือไม่:", selector ? "เจอ" : "ไม่เจอ");
+
                 if(data.error) {
                     return Swal.fire('เกิดข้อผิดพลาดใน Sheet', data.error, 'error');
                 }
-
-                // 🕵️‍♂️ แอบดูข้อมูลใน Console 
-                console.log("ID ที่ใช้ค้นหา (แบบลบวรรคแล้ว):", data.cleanSearchID);
-                console.log("ค่า ramaID_MR ในชีต 5 แถวแรก:", data.debugLog);
-                console.log("จำนวนงานวิจัยที่หาเจอ:", data.researches.length);
 
                 document.getElementById('display-username').innerText = data.currentUserName;
                 populateDropdowns(data);
