@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.6</title>
+    <title>Research Rama Tracker v2.7</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -18,7 +18,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.26</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.27</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -50,17 +50,18 @@
                 <div class="mb-2">
                     <label class="form-label">Title (ชื่อเรื่อง)</label>
                     <input type="text" id="Title" class="form-control" required>
+                    <div id="mr_name_display" class="text-success small mt-1 fw-bold" style="display:none;"></div>
                 </div>
                 
                 <div class="mb-3">
-                    <label class="form-label fw-bold">ทีมวิจัย (Other Research - แพทย์)</label>
+                    <label class="form-label fw-bold mt-2">ทีมวิจัย (Other Research - แพทย์)</label>
                     <div id="other_research_list" class="mb-2 p-2 border rounded bg-light min-vh-5" style="min-height: 45px;"></div>
                     <button type="button" id="btn_add_doctor" class="btn btn-outline-primary btn-sm" onclick="openPicker('doctor')">+ เพิ่มรายชื่อแพทย์</button>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label">Main Staff (อาจารย์ที่ปรึกษาหลัก)</label>
-                    <select id="ramaID_MS" class="form-select" required></select>
+                    <select id="ramaID_MS" class="form-select" required onchange="currentData.ramaID_MS = this.value;"></select>
                 </div>
 
                 <div class="mb-3">
@@ -85,7 +86,7 @@
 
             <div class="d-flex gap-2">
                 <button type="button" id="save-btn" class="btn btn-success w-100 py-2 fw-bold shadow" onclick="saveData()">💾 บันทึกข้อมูล</button>
-                <button type="button" class="btn btn-danger w-100 py-2" onclick="location.reload()">ออก</button>
+                <button type="button" class="btn btn-danger w-100 py-2" onclick="closeForm()">ปิด / ยกเลิก</button>
             </div>
         </form>
     </div>
@@ -127,7 +128,10 @@
         const id = document.getElementById('login-ramaid').value.trim();
         if (!id) return Swal.fire('แจ้งเตือน', 'กรุณาระบุ Rama ID', 'warning');
         currentUser.id = id;
-        
+        fetchInitialData();
+    }
+
+    function fetchInitialData() {
         Swal.fire({ title: 'กำลังโหลดข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         fetch(`${GAS_URL}?action=getInitialData&ramaID=${currentUser.id}`)
             .then(res => res.json())
@@ -153,18 +157,39 @@
             }).catch(e => Swal.fire('Error', 'เชื่อมต่อล้มเหลว', 'error'));
     }
 
-    // ฟังก์ชันจัดการ Modal รายชื่อ (ซ่อนถ้าเป็น Viewer)
+    // อัปเดต: ฟังก์ชันปิดฟอร์มโดยไม่ต้องรีโหลดหน้า
+    function closeForm() {
+        document.getElementById('research-form').style.display = 'none';
+        document.getElementById('research-selector').value = '';
+    }
+
+    // อัปเดต: กรองรายชื่อตัวเองออกตอนเลือกทีมวิจัย
     function openPicker(type) {
         if(isViewer) return; 
-        const list = (type === 'doctor') ? masterData.doctors : masterData.otherStaffs;
-        const currentField = (type === 'doctor') ? 'other_research' : 'other_staff';
-        const alreadySelected = currentData[currentField];
+        const isDoctor = (type === 'doctor');
+        const fullList = isDoctor ? masterData.doctors : masterData.otherStaffs;
+        const currentField = isDoctor ? 'other_research' : 'other_staff';
+        const alreadySelected = currentData[currentField] || [];
+
+        // กรองชื่อ MR ออกจากช่อง Other Research และชื่อ MS ออกจากช่อง Other Staff
+        const mrID = currentData.ramaID_MR;
+        const msID = document.getElementById('ramaID_MS').value;
+
+        const filteredList = fullList.filter(item => {
+            if (isDoctor && item.id == mrID) return false;
+            if (!isDoctor && item.id == msID) return false;
+            return true;
+        });
 
         let optionsHTML = `<div class="text-start" style="max-height: 300px; overflow-y: auto;">`;
-        list.forEach(item => {
-            const checked = alreadySelected.includes(item.name) ? 'checked' : '';
-            optionsHTML += `<div class="form-check mb-2"><input class="form-check-input" type="checkbox" value="${item.name}" id="chk_${item.id}" ${checked}> <label class="form-check-label" for="chk_${item.id}">${item.name}</label></div>`;
-        });
+        if(filteredList.length === 0) {
+            optionsHTML += `<div class="text-muted text-center py-3">ไม่มีรายชื่อให้เลือก</div>`;
+        } else {
+            filteredList.forEach(item => {
+                const checked = alreadySelected.includes(item.name) ? 'checked' : '';
+                optionsHTML += `<div class="form-check mb-2"><input class="form-check-input" type="checkbox" value="${item.name}" id="chk_${item.id}" ${checked}> <label class="form-check-label" for="chk_${item.id}">${item.name}</label></div>`;
+            });
+        }
         optionsHTML += `</div>`;
 
         Swal.fire({ title: 'เลือกรายชื่อ', html: optionsHTML, showCancelButton: true, confirmButtonText: 'ตกลง' }).then((result) => {
@@ -180,7 +205,7 @@
     function updateTagDisplay(type) {
         const field = (type === 'doctor') ? 'other_research' : 'other_staff';
         const container = document.getElementById(field + '_list');
-        const data = currentData[field];
+        const data = currentData[field] || [];
 
         if (data.length === 0) {
             container.innerHTML = '<span class="text-muted small">ยังไม่ได้เลือกรายชื่อ</span>';
@@ -205,6 +230,12 @@
             isViewer = false;
             currentData = { ramaID_MR: currentUser.id, other_research: [], other_staff: [] };
             form.reset();
+            
+            // อัปเดต: ตั้งค่าชื่อ MR 
+            currentData.main_research = masterData.currentUserName;
+            document.getElementById('mr_name_display').innerText = `👨‍⚕️ ผู้วิจัยหลัก (MR): ${currentData.main_research}`;
+            document.getElementById('mr_name_display').style.display = 'block';
+
             document.getElementById('Title').readOnly = false;
             document.getElementById('ramaID_MS').disabled = false;
             document.getElementById('existing_draft_link').style.display = 'none';
@@ -214,9 +245,13 @@
             currentData.other_research = res.other_research ? res.other_research.split('\n').filter(n => n) : [];
             currentData.other_staff = res.other_staff ? res.other_staff.split('\n').filter(n => n) : [];
             
-            // เช็คสิทธิ์การเข้าถึง (Viewer)
             isViewer = (currentUser.id != currentData.ramaID_MR && currentUser.id != currentData.ramaID_MS);
             
+            // อัปเดต: ดึงชื่อ MR มาโชว์
+            const mrNameStr = currentData.main_research || masterData.doctors.find(d => d.id == currentData.ramaID_MR)?.name || currentData.ramaID_MR;
+            document.getElementById('mr_name_display').innerText = `👨‍⚕️ ผู้วิจัยหลัก (MR): ${mrNameStr}`;
+            document.getElementById('mr_name_display').style.display = 'block';
+
             document.getElementById('Title').value = res.Title || '';
             document.getElementById('Title').readOnly = true;
             document.getElementById('ramaID_MS').value = res.ramaID_MS || '';
@@ -229,7 +264,6 @@
             } else { draftLinkContainer.style.display = 'none'; }
         }
 
-        // --- ควบคุม UI สำหรับโหมดผู้เยี่ยมชม (Viewer Mode) ---
         document.getElementById('viewer-badge').style.display = isViewer ? 'inline-block' : 'none';
         document.getElementById('save-btn').style.display = isViewer ? 'none' : 'block';
         document.getElementById('btn_add_doctor').style.display = isViewer ? 'none' : 'inline-block';
@@ -242,7 +276,6 @@
         renderProgress();
     }
 
-    // ฟังก์ชันสร้างหน้าจอความก้าวหน้า
     function renderProgress() {
         const container = document.getElementById('progress-container');
         container.innerHTML = '';
@@ -255,11 +288,10 @@
             let locked = (!prevOk || !isMyRole || isViewer);
             let needsCondition = false;
 
-            // มาร์คปุ่มว่าต้องการเช็คเงื่อนไขก่อน
             if (!val && prevOk && isMyRole && !isViewer) {
                 if (step.key === 'protocol_draft' || step.key === 'EC_approve') {
                     needsCondition = true;
-                    locked = true; // บังคับล็อคไว้ก่อน
+                    locked = true; 
                 }
             }
 
@@ -300,15 +332,12 @@
             if (!val) prevOk = false; 
         });
 
-        // หลังจากวาดเสร็จ ให้ลองตรวจเช็คเงื่อนไขปลดล็อคทันที
         checkConditions();
     }
 
-    // 🌟 พระเอกของงานนี้: ฟังก์ชันเช็คเงื่อนไขและปลดล็อคปุ่มแบบเรียลไทม์ 🌟
     function checkConditions() {
         if (isViewer) return;
 
-        // 1. เช็ค Protocol Draft
         const btnProto = document.getElementById('btn_protocol_draft');
         if (btnProto && btnProto.getAttribute('data-needs-check') === 'true') {
             const fDraft = document.getElementById('draft_link_file');
@@ -316,7 +345,6 @@
             btnProto.disabled = !hasFile;
         }
 
-        // 2. เช็ค EC Approve
         const btnEC = document.getElementById('btn_EC_approve');
         if (btnEC && btnEC.getAttribute('data-needs-check') === 'true') {
             const fEC = document.getElementById('file_EC_approve');
@@ -348,6 +376,10 @@
             payload.Title = document.getElementById('Title').value;
             payload.ramaID_MS = document.getElementById('ramaID_MS').value;
             payload.main_staff = document.getElementById('ramaID_MS').options[document.getElementById('ramaID_MS').selectedIndex]?.text;
+            
+            // ส่งชื่อ MR ไปบันทึกด้วย
+            if (!payload.main_research) payload.main_research = currentData.main_research;
+
             payload.other_research = currentData.other_research.join('\n');
             payload.other_staff = currentData.other_staff.join('\n');
 
@@ -364,7 +396,14 @@
 
             const resp = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'saveResearch', payload: payload }) });
             const res = await resp.json();
-            if (res.status === 'success') Swal.fire('สำเร็จ', res.message, 'success').then(() => location.reload());
+            
+            // อัปเดต: บันทึกเสร็จ ไม่ต้องหลุดออกจากระบบ ดึงข้อมูลอัปเดตใหม่เลย
+            if (res.status === 'success') {
+                Swal.fire('สำเร็จ', res.message, 'success').then(() => {
+                    closeForm();
+                    fetchInitialData(); 
+                });
+            }
         } catch (e) { Swal.fire('Error', 'บันทึกไม่สำเร็จ', 'error'); }
     }
 </script>
