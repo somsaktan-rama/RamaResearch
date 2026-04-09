@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.2</title>
+    <title>Research Rama Tracker v2.3</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -17,7 +17,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.21</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.22</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -52,28 +52,26 @@
                 
                 <div class="mb-3">
                     <label class="form-label fw-bold">ทีมวิจัย (Other Research - แพทย์)</label>
-                    <div id="other_research_list" class="mb-2 p-2 border rounded bg-light min-vh-5" style="min-height: 45px;">
-                        <span class="text-muted small">ยังไม่ได้เลือกรายชื่อ</span>
-                    </div>
+                    <div id="other_research_list" class="mb-2 p-2 border rounded bg-light min-vh-5" style="min-height: 45px;"></div>
                     <button type="button" class="btn btn-outline-primary btn-sm" onclick="openPicker('doctor')">+ เพิ่มรายชื่อแพทย์</button>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label">Main Staff (อาจารย์ที่ปรึกษาหลัก)</label>
                     <select id="ramaID_MS" class="form-select" required></select>
+                    <small id="ms_lock_warning" class="text-danger mt-1" style="display:none;">* ไม่สามารถเปลี่ยนชื่ออาจารย์ได้แล้ว</small>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label fw-bold">อาจารย์ร่วม (Other Staff)</label>
-                    <div id="other_staff_list" class="mb-2 p-2 border rounded bg-light min-vh-5" style="min-height: 45px;">
-                        <span class="text-muted small">ยังไม่ได้เลือกรายชื่อ</span>
-                    </div>
+                    <div id="other_staff_list" class="mb-2 p-2 border rounded bg-light min-vh-5" style="min-height: 45px;"></div>
                     <button type="button" class="btn btn-outline-primary btn-sm" onclick="openPicker('staff')">+ เพิ่มรายชื่ออาจารย์</button>
                 </div>
 
                 <div class="mb-3 mt-3 p-2 bg-light border rounded">
                     <label class="fw-bold">📄 แนบไฟล์ Draft Protocol (PDF)</label>
-                    <input type="file" id="draft_link_file" class="form-control form-control-sm mt-1" accept=".pdf">
+                    <input type="file" id="draft_link_file" class="form-control form-control-sm mt-1" accept=".pdf" onchange="renderProgress()">
+                    <div id="existing_draft_link" class="mt-2" style="display:none;"></div>
                 </div>
             </div>
 
@@ -95,7 +93,7 @@
     
     let currentUser = { id: '', ip: '' };
     let masterData = {};
-    let currentData = { other_research: [], other_staff: [] }; // เปลี่ยนเป็น Array เพื่อจัดการง่ายขึ้น
+    let currentData = { other_research: [], other_staff: [] }; 
     
     const progressSteps = [
         { key: 'protocol_draft', label: 'Protocol Draft', role: 'MR' },
@@ -146,7 +144,6 @@
                 masterData = data;
                 renderResearchSelector();
                 
-                // ใส่ข้อมูลอาจารย์หลัก
                 let msHTML = '<option value="">-- เลือกอาจารย์ที่ปรึกษา --</option>';
                 data.mainStaffs.forEach(s => msHTML += `<option value="${s.id}">${s.name}</option>`);
                 document.getElementById('ramaID_MS').innerHTML = msHTML;
@@ -160,11 +157,10 @@
     function renderResearchSelector() {
         let html = '<option value="">-- เลือกงานวิจัย --</option>';
         masterData.researches.forEach(r => html += `<option value="${r.rowIndex}">${r.Title || 'ไม่ระบุชื่อ'}</option>`);
-        html += `<option value="new">+ สร้างงานวิจัยใหม่</option>`;
+        html += `<option value="new" class="text-primary fw-bold">+ สร้างงานวิจัยใหม่</option>`;
         document.getElementById('research-selector').innerHTML = html;
     }
 
-    // --- ฟังก์ชันเลือกรายชื่อแบบ Modal ---
     function openPicker(type) {
         const list = (type === 'doctor') ? masterData.doctors : masterData.otherStaffs;
         const currentField = (type === 'doctor') ? 'other_research' : 'other_staff';
@@ -210,8 +206,7 @@
 
         container.innerHTML = data.map((name, index) => `
             <span class="tag-item">
-                ${name}
-                <span class="tag-remove" onclick="removeTag('${type}', ${index})">×</span>
+                ${name} <span class="tag-remove" onclick="removeTag('${type}', ${index})">×</span>
             </span>
         `).join('');
     }
@@ -231,19 +226,39 @@
             currentData = { ramaID_MR: currentUser.id, other_research: [], other_staff: [] };
             form.reset();
             document.getElementById('Title').readOnly = false;
+            
+            // อัปเดต 2: ปลดล็อค Main Staff หากเป็นงานใหม่ และซ่อนลิงก์ไฟล์เดิม
+            document.getElementById('ramaID_MS').disabled = false;
+            document.getElementById('ms_lock_warning').style.display = 'none';
+            document.getElementById('existing_draft_link').style.display = 'none';
+
         } else {
             const res = masterData.researches.find(r => r.rowIndex == val);
             currentData = { ...res };
-            // แปลงข้อมูลจาก Sheet (บรรทัดใหม่) เป็น Array
             currentData.other_research = res.other_research ? res.other_research.split('\n').filter(n => n) : [];
             currentData.other_staff = res.other_staff ? res.other_staff.split('\n').filter(n => n) : [];
             
             document.getElementById('Title').value = res.Title || '';
             document.getElementById('Title').readOnly = true;
             document.getElementById('ramaID_MS').value = res.ramaID_MS || '';
+
+            // อัปเดต 3: ล็อค Main Staff ไม่ให้แก้ และแสดงลิงก์ไฟล์เดิมถ้ามี
+            document.getElementById('ramaID_MS').disabled = true;
+            document.getElementById('ms_lock_warning').style.display = 'block';
+
+            const draftLinkContainer = document.getElementById('existing_draft_link');
+            if(res.draft_link && res.draft_link.trim() !== '') {
+                draftLinkContainer.innerHTML = `<a href="${res.draft_link}" target="_blank" class="badge bg-primary text-decoration-none p-2">🔍 ดูไฟล์ Draft ที่แนบไว้แล้ว</a>`;
+                draftLinkContainer.style.display = 'block';
+            } else {
+                draftLinkContainer.style.display = 'none';
+            }
         }
         updateTagDisplay('doctor');
         updateTagDisplay('staff');
+        
+        // ล้างค่าที่ค้างอยู่ในช่องเลือกไฟล์ใหม่ (เผื่อเปลี่ยนโปรเจกต์)
+        document.getElementById('draft_link_file').value = '';
         renderProgress();
     }
 
@@ -251,12 +266,25 @@
         const container = document.getElementById('progress-container');
         container.innerHTML = '';
         let prevOk = true;
+        
         progressSteps.forEach(step => {
             const val = currentData[step.key];
             const isMe = (step.role === 'MR' && currentUser.id == currentData.ramaID_MR) || 
-                         (step.role === 'MS' && currentUser.id == masterData.researches.find(r => r.rowIndex == document.getElementById('research-selector').value)?.ramaID_MS);
+                         (step.role === 'MS' && currentUser.id == currentData.ramaID_MS);
             
-            const locked = (!prevOk || !isMe);
+            let locked = (!prevOk || !isMe);
+
+            // อัปเดต 4: เงื่อนไขบังคับแนบไฟล์สำหรับ Protocol Draft
+            if (step.key === 'protocol_draft') {
+                const fileInput = document.getElementById('draft_link_file');
+                const hasNewFile = fileInput && fileInput.files.length > 0;
+                const hasOldFile = currentData.draft_link && currentData.draft_link.trim() !== '';
+
+                if (!hasNewFile && !hasOldFile) {
+                    locked = true; 
+                }
+            }
+
             container.innerHTML += `
                 <div class="card p-2 step-card mb-2 ${locked ? 'step-locked' : ''}">
                     <div class="d-flex justify-content-between align-items-center">
@@ -285,9 +313,22 @@
             payload.ramaID_MS = document.getElementById('ramaID_MS').value;
             payload.main_staff = document.getElementById('ramaID_MS').options[document.getElementById('ramaID_MS').selectedIndex]?.text;
             
-            // แปลง Array กลับเป็น String ขึ้นบรรทัดใหม่เพื่อเซฟลง Sheet
             payload.other_research = currentData.other_research.join('\n');
             payload.other_staff = currentData.other_staff.join('\n');
+
+            const fileToBase64 = (fileInputId) => new Promise((resolve, reject) => {
+                const fileInput = document.getElementById(fileInputId);
+                if (!fileInput || fileInput.files.length === 0) return resolve(null);
+                const reader = new FileReader();
+                reader.readAsDataURL(fileInput.files[0]);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+
+            payload.draftLinkBase64 = await fileToBase64('draft_link_file');
+            // กรณีมีช่องไฟล์อื่นๆ ในอนาคต ให้แปลงแบบนี้เช่นกัน:
+            // payload.ecLinkBase64 = await fileToBase64('file_EC_approve');
+            // payload.manuLinkBase64 = await fileToBase64('file_manu_accept');
 
             const resp = await fetch(GAS_URL, {
                 method: 'POST',
