@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.16</title>
+    <title>Research Rama Tracker v2.17</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -18,7 +18,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.36</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.37</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -98,13 +98,14 @@
 
 <script>
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbyPuWxqyYQ7ulh0Dyb-fgc29FbtYfoSHtu9MgN-Rih9PKKshHDuiDncC6qZJe6OoGU/exec';
+
     
     let currentUser = { id: '', ip: '' };
     let masterData = {};
     let currentData = { other_research: [], other_staff: [] }; 
     let isViewer = false; 
     let pendingFiles = {}; 
-    let currentPerms = {}; // ตัวแปรเก็บสิทธิ์แบบ Global
+    let currentPerms = {}; 
     
     const progressSteps = [
         { key: 'protocol_draft', label: 'Protocol Draft', role: 'MR', hasFile: 'draft_link' },
@@ -130,10 +131,21 @@
 
     window.onload = () => { document.getElementById('login-status').innerText = "✅ พร้อมใช้งาน"; document.getElementById('login-status').className = "text-success fw-bold"; document.getElementById('login-btn').disabled = false; };
 
+    // ==========================================
+    // 🌟 ระบบป้องกันตัวพิมพ์เล็ก/ใหญ่ และช่องว่างแฝง 🌟
+    // ==========================================
     function isSameID(id1, id2) {
         const c1 = (id1 || '').toString().replace(/^0+/, '') || '0';
         const c2 = (id2 || '').toString().replace(/^0+/, '') || '0';
         return c1 === c2;
+    }
+
+    function getSafeData(obj, key) {
+        if (!key) return null;
+        if (obj[key] !== undefined && obj[key] !== "") return obj[key];
+        // หากหาแบบตรงตัวไม่เจอ ให้ค้นหาแบบไม่สนตัวพิมพ์เล็กใหญ่
+        const foundKey = Object.keys(obj).find(k => k.toLowerCase() === key.toLowerCase());
+        return foundKey ? obj[foundKey] : null;
     }
 
     function login() {
@@ -194,7 +206,7 @@
         const currentField = isDoctor ? 'other_research' : 'other_staff';
         const alreadySelected = currentData[currentField] || [];
 
-        const mrID = currentData.ramaID_MR;
+        const mrID = getSafeData(currentData, 'ramaID_MR');
         const msID = document.getElementById('ramaID_MS').value;
 
         const filteredList = fullList.filter(item => {
@@ -253,11 +265,6 @@
         }
     }
 
-    function getFileUrl(fileKey) {
-        if (!fileKey) return null;
-        return currentData[fileKey] || currentData[fileKey.toLowerCase()] || currentData[fileKey.charAt(0).toUpperCase() + fileKey.slice(1).toLowerCase()];
-    }
-
     function loadResearch(val) {
         const form = document.getElementById('research-form');
         pendingFiles = {}; 
@@ -277,20 +284,26 @@
         } else {
             const res = masterData.researches.find(r => r.rowIndex == val);
             currentData = { ...res };
-            currentData.other_research = res.other_research ? res.other_research.split('\n').filter(n => n) : [];
-            currentData.other_staff = res.other_staff ? res.other_staff.split('\n').filter(n => n) : [];
             
-            const mrNameStr = currentData.main_research || masterData.doctors.find(d => isSameID(d.id, currentData.ramaID_MR))?.name || currentData.ramaID_MR;
+            const rawOR = getSafeData(res, 'other_research');
+            const rawOS = getSafeData(res, 'other_staff');
+            currentData.other_research = rawOR ? String(rawOR).split('\n').filter(n => n) : [];
+            currentData.other_staff = rawOS ? String(rawOS).split('\n').filter(n => n) : [];
+            
+            const dbMR = getSafeData(res, 'ramaID_MR');
+            const dbMS = getSafeData(res, 'ramaID_MS');
+            const mrNameStr = getSafeData(res, 'main_research') || masterData.doctors.find(d => isSameID(d.id, dbMR))?.name || dbMR;
+            
             document.getElementById('mr_name_display').innerText = `👨‍⚕️ ผู้วิจัยหลัก (MR): ${mrNameStr}`;
             document.getElementById('mr_name_display').style.display = 'block';
 
-            document.getElementById('Title').value = res.Title || '';
+            document.getElementById('Title').value = getSafeData(res, 'Title') || '';
             document.getElementById('Title').readOnly = true;
-            document.getElementById('ramaID_MS').value = res.ramaID_MS || '';
+            document.getElementById('ramaID_MS').value = dbMS || '';
             document.getElementById('ramaID_MS').disabled = true;
 
             const draftLinkContainer = document.getElementById('existing_draft_link');
-            const safeDraftLink = getFileUrl('draft_link');
+            const safeDraftLink = getSafeData(res, 'draft_link');
             if(safeDraftLink && safeDraftLink.trim() !== '') {
                 draftLinkContainer.innerHTML = `<a href="${safeDraftLink}" target="_blank" class="badge bg-primary text-decoration-none p-2 mt-2">🔍 ดูไฟล์ Draft ที่แนบไว้แล้ว</a>`;
                 draftLinkContainer.style.display = 'block';
@@ -298,12 +311,14 @@
         }
 
         // ==========================================
-        // 🌟 อัปเดตล่าสุด: คำนวณสิทธิ์ให้จบที่เดียวตรงนี้ 🌟
+        // 🌟 คำนวณสิทธิ์ให้จบที่เดียวตรงนี้ (แบบ Safe Case) 🌟
         // ==========================================
         const myName = (masterData.currentUserName || "").trim();
+        const dbMR = getSafeData(currentData, 'ramaID_MR');
+        const dbMS = getSafeData(currentData, 'ramaID_MS');
         
-        currentPerms.isMR = isSameID(currentUser.id, currentData.ramaID_MR);
-        currentPerms.isMS = isSameID(currentUser.id, currentData.ramaID_MS);
+        currentPerms.isMR = isSameID(currentUser.id, dbMR);
+        currentPerms.isMS = isSameID(currentUser.id, dbMS);
         currentPerms.isOS = currentData.other_staff.some(n => n.trim() === myName);
         currentPerms.isOR = currentData.other_research.some(n => n.trim() === myName);
         currentPerms.isStaffGroup = (masterData.otherStaffs || []).some(s => isSameID(s.id, currentUser.id));
@@ -311,10 +326,10 @@
         // อนุญาตให้ดูทุกไฟล์ได้ ถ้าเป็นใครก็ตามในนี้
         currentPerms.canViewAllFiles = currentPerms.isMR || currentPerms.isMS || currentPerms.isOS || currentPerms.isStaffGroup;
         
-        // กำหนดโหมด Viewer (ถ้าไม่ใช่เจ้าของงาน/อาจารย์หลัก ก็เป็น Viewer ห้ามกดปุ่มลงเวลา)
+        // กำหนดโหมด Viewer (ถ้าไม่ใช่เจ้าของงาน/อาจารย์หลัก ห้ามกดปุ่มลงเวลา)
         isViewer = !currentPerms.isMR && !currentPerms.isMS;
 
-        // วาดป้ายบอกสิทธิ์ให้ผู้ใช้รู้ตัว
+        // วาดป้ายบอกสิทธิ์
         let badgeText = "ผู้เยี่ยมชม (ไม่มีสิทธิ์)";
         let badgeClass = "bg-secondary";
         
@@ -329,7 +344,6 @@
         badgeEl.className = `badge shadow-sm me-1 ${badgeClass}`;
         badgeEl.style.display = 'inline-block';
 
-        // ปิดซ่อนปุ่มตามโหมด
         document.getElementById('save-btn').style.display = isViewer ? 'none' : 'block';
         document.getElementById('btn_add_doctor').style.display = isViewer ? 'none' : 'inline-block';
         document.getElementById('btn_add_staff').style.display = isViewer ? 'none' : 'inline-block';
@@ -347,7 +361,8 @@
         let prevOk = true;
         
         progressSteps.forEach(step => {
-            const val = currentData[step.key];
+            // ดึงค่าการลงเวลามาด้วยระบบป้องกัน Case-Sensitive
+            const val = getSafeData(currentData, step.key);
             const isMyRole = (step.role === 'MR' && currentPerms.isMR) || (step.role === 'MS' && currentPerms.isMS);
             
             let locked = (!prevOk || !isMyRole || isViewer);
@@ -378,11 +393,10 @@
             }
 
             // ==========================================
-            // ดึงสิทธิ์ canViewAllFiles มาใช้แบบตรงๆ เลย
+            // ดึงไฟล์ด้วยระบบ getSafeData
             // ==========================================
-            const fileUrl = getFileUrl(step.hasFile);
+            const fileUrl = getSafeData(currentData, step.hasFile);
             if (val && fileUrl) {
-                // โปรโตคอลดราฟให้ดูได้ทุกคน แต่ไฟล์อื่น เช็คตามสิทธิ์ที่เราคำนวณไว้ด้านบน (currentPerms.canViewAllFiles)
                 if (step.key === 'protocol_draft' || currentPerms.canViewAllFiles) {
                     html += `<div class="mt-2"><a href="${fileUrl}" target="_blank" class="badge bg-primary text-decoration-none p-2 shadow-sm">🔍 ดูไฟล์ที่แนบไว้</a></div>`;
                 } else {
@@ -399,7 +413,9 @@
                 </div>`;
             }
             if (step.needsDates && val) {
-                html += `<div class="mt-2 small text-success fw-bold">📅 อนุมัติ: ${currentData.EC_approve_date || '-'} | หมดอายุ: ${currentData.EC_expire_date || '-'}</div>`;
+                const appDate = getSafeData(currentData, 'EC_approve_date') || '-';
+                const expDate = getSafeData(currentData, 'EC_expire_date') || '-';
+                html += `<div class="mt-2 small text-success fw-bold">📅 อนุมัติ: ${appDate} | หมดอายุ: ${expDate}</div>`;
             }
 
             if (step.needsText && prevOk && isMyRole && !val && !isViewer) {
@@ -427,7 +443,7 @@
 
                 if (step.hasFile) {
                     const hasNewFile = !!pendingFiles[step.key];
-                    const oldFileUrl = getFileUrl(step.hasFile);
+                    const oldFileUrl = getSafeData(currentData, step.hasFile);
                     const hasOldFile = oldFileUrl && oldFileUrl.trim() !== '';
                     if (!hasNewFile && !hasOldFile) locked = true;
                 }
