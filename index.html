@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.14</title>
+    <title>Research Rama Tracker v2.15</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -18,7 +18,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.34</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.35</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -97,7 +97,6 @@
 </div>
 
 <script>
-    // 🚨 ใส่ URL ของ Google Apps Script ของคุณตรงนี้
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbyPuWxqyYQ7ulh0Dyb-fgc29FbtYfoSHtu9MgN-Rih9PKKshHDuiDncC6qZJe6OoGU/exec';
     
     let currentUser = { id: '', ip: '' };
@@ -130,9 +129,6 @@
 
     window.onload = () => { document.getElementById('login-status').innerText = "✅ พร้อมใช้งาน"; document.getElementById('login-status').className = "text-success fw-bold"; document.getElementById('login-btn').disabled = false; };
 
-    // ==========================================
-    // 🌟 ระบบตัดเลข 0 นำหน้า เพื่อเทียบรหัสให้ตรงกันเสมอ
-    // ==========================================
     function isSameID(id1, id2) {
         const c1 = (id1 || '').toString().replace(/^0+/, '') || '0';
         const c2 = (id2 || '').toString().replace(/^0+/, '') || '0';
@@ -282,8 +278,6 @@
             currentData = { ...res };
             currentData.other_research = res.other_research ? res.other_research.split('\n').filter(n => n) : [];
             currentData.other_staff = res.other_staff ? res.other_staff.split('\n').filter(n => n) : [];
-            
-            // อัปเดต: ใช้ isSameID ประเมินว่าใช่เจ้าของงานหรือไม่
             isViewer = !isSameID(currentUser.id, currentData.ramaID_MR) && !isSameID(currentUser.id, currentData.ramaID_MS);
             
             const mrNameStr = currentData.main_research || masterData.doctors.find(d => isSameID(d.id, currentData.ramaID_MR))?.name || currentData.ramaID_MR;
@@ -354,15 +348,23 @@
             }
 
             // ==========================================
-            // อัปเดตล่าสุด: จัดการสิทธิ์การดูไฟล์ด้วย isSameID 
+            // 🌟 อัปเดตล่าสุด: สแกนสิทธิ์แบบตัดช่องว่างแฝง
             // ==========================================
             const fileUrl = getFileUrl(step.hasFile);
             if (val && fileUrl) {
-                // เช็คว่าเป็น Staff ทั่วไป / อาจารย์ร่วม ด้วยรหัสที่ตัดเลข 0 ออกแล้ว
-                const isStaffUser = masterData.otherStaffs.some(s => isSameID(s.id, currentUser.id));
-                const isOS = currentData.other_staff && currentData.other_staff.includes(masterData.currentUserName);
+                const myName = (masterData.currentUserName || "").trim();
+                
+                // ตรวจสอบว่าเป็น อาจารย์ร่วม หรือไม่
+                const osArray = Array.isArray(currentData.other_staff) ? currentData.other_staff : [];
+                const isOS = osArray.some(n => n.trim() === myName);
+                
+                // ตรวจสอบว่าเป็นอาจารย์ในภาควิชา หรือไม่
+                const isStaffGroup = (masterData.mainStaffs || []).some(s => isSameID(s.id, currentUser.id));
 
-                if (step.key === 'protocol_draft' || isMR || isMS || isOS || isStaffUser) {
+                // ปลดล็อคให้: 1.ทุกคนสำหรับ Protocol 2.ผู้วิจัยหลัก 3.อาจารย์ที่ปรึกษาหลัก 4.อาจารย์ร่วม 5.อาจารย์ทุกท่านในแผนก
+                const canViewFile = (step.key === 'protocol_draft') || isMR || isMS || isOS || isStaffGroup;
+
+                if (canViewFile) {
                     html += `<div class="mt-2"><a href="${fileUrl}" target="_blank" class="badge bg-primary text-decoration-none p-2">🔍 ดูไฟล์ที่แนบไว้</a></div>`;
                 } else {
                     html += `<div class="mt-2"><span class="badge bg-secondary p-1" style="font-size:0.75rem;">🔒 สงวนสิทธิ์เฉพาะผู้วิจัยและอาจารย์</span></div>`;
