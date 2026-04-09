@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.18</title>
+    <title>Research Rama Tracker v2.19 (Final)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .step-card { border-left: 4px solid #0d6efd; margin-bottom: 15px; transition: 0.3s; }
-        /* ล็อคการกดปุ่ม แต่เราจะไปปลดล็อคให้เฉพาะลิงก์ดูไฟล์ทีหลัง */
-        .step-locked { opacity: 0.6; pointer-events: none; border-left: 4px solid #6c757d; background-color:#f1f3f5 !important; }
+        .step-locked { opacity: 0.5; pointer-events: none; border-left: 4px solid #6c757d; background-color:#f1f3f5 !important; }
         .condition-wait { border-left: 4px solid #ffc107 !important; background-color: #fffbeb !important; }
         .tag-item { display: inline-block; background: #e9ecef; border: 1px solid #dee2e6; border-radius: 15px; padding: 2px 10px; margin: 2px; font-size: 0.85rem; }
         .tag-remove { margin-left: 5px; cursor: pointer; color: #dc3545; font-weight: bold; }
@@ -19,11 +19,11 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.38</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยิวหนัง รามาธิบดี 1.39</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
-            <span id="login-status" class="text-warning fw-bold">กำลังเตรียมความพร้อมระบบ...</span>
+            <span id="login-status" class="text-warning fw-bold">กำลังเชื่อมต่อระบบ LINE...</span>
         </div>
         <div class="mb-3">
             <label class="form-label">Rama ID</label>
@@ -99,8 +99,9 @@
 
 <script>
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbyPuWxqyYQ7ulh0Dyb-fgc29FbtYfoSHtu9MgN-Rih9PKKshHDuiDncC6qZJe6OoGU/exec';
+    const LIFF_ID = '2009730964-NicRUF0I';
     
-    let currentUser = { id: '', ip: '' };
+    let currentUser = { id: '', ip: '', line_uid: '' };
     let masterData = {};
     let currentData = { other_research: [], other_staff: [] }; 
     let isViewer = false; 
@@ -129,7 +130,29 @@
         { key: 'MS_manu_accept', label: 'MS Final Accept', role: 'MS' }
     ];
 
-    window.onload = () => { document.getElementById('login-status').innerText = "✅ พร้อมใช้งาน"; document.getElementById('login-status').className = "text-success fw-bold"; document.getElementById('login-btn').disabled = false; };
+    // ==========================================
+    // 🌟 ระบบเปิดเว็บและเตรียม LIFF (LINE)
+    // ==========================================
+    window.onload = async () => { 
+        try {
+            await liff.init({ liffId: LIFF_ID });
+            if (liff.isLoggedIn()) {
+                const profile = await liff.getProfile();
+                currentUser.line_uid = profile.userId;
+                document.getElementById('login-status').innerText = "✅ พร้อมใช้งาน (เชื่อมต่อ LINE แล้ว)";
+                document.getElementById('login-status').className = "text-success fw-bold";
+            } else {
+                document.getElementById('login-status').innerText = "✅ พร้อมใช้งาน (โหมดเบราว์เซอร์ปกติ)";
+                document.getElementById('login-status').className = "text-primary fw-bold";
+            }
+        } catch (e) {
+            console.log("LIFF Init Error:", e);
+            document.getElementById('login-status').innerText = "✅ พร้อมใช้งาน (ไม่พบการเชื่อมต่อ LINE)";
+            document.getElementById('login-status').className = "text-secondary fw-bold";
+        } finally {
+            document.getElementById('login-btn').disabled = false;
+        }
+    };
 
     function isSameID(id1, id2) {
         const c1 = (id1 || '').toString().replace(/^0+/, '') || '0';
@@ -156,12 +179,35 @@
     }
 
     function fetchInitialData() {
-        Swal.fire({ title: 'กำลังโหลด/อัปเดตข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        fetch(`${GAS_URL}?action=getInitialData&ramaID=${currentUser.id}`)
+        Swal.fire({ title: 'กำลังตรวจสอบสิทธิ์...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        
+        // ส่ง lineUid เข้าไปเช็คในระบบหลังบ้านด้วย
+        fetch(`${GAS_URL}?action=getInitialData&ramaID=${currentUser.id}&lineUid=${currentUser.line_uid || ''}`)
             .then(res => res.json())
             .then(data => {
+                
+                // ==========================================
+                // 🌟 ตรวจจับการเรียกหา LINE Login
+                // ==========================================
+                if (data.requireLineLogin) {
+                    Swal.fire({
+                        title: '🔒 การยืนยันตัวตน',
+                        text: data.message,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'ล็อกอินด้วย LINE',
+                        cancelButtonText: 'ยกเลิก',
+                        confirmButtonColor: '#06C755'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            liff.login(); // เด้งไปหน้าจอ LINE Login อัตโนมัติ
+                        }
+                    });
+                    return; // เบรกการทำงานตรงนี้
+                }
+
                 if(data.error) return Swal.fire('Error', data.error, 'error');
-                if(data.currentUserName === "ไม่พบชื่อในระบบ") return Swal.fire('ไม่อนุญาต', 'ไม่พบรหัสนี้', 'warning');
+                if(data.currentUserName === "ไม่พบชื่อในระบบ") return Swal.fire('ไม่อนุญาต', 'ไม่พบรหัสนี้ในฐานข้อมูล', 'warning');
                 
                 document.getElementById('display-username').innerText = data.currentUserName;
                 masterData = data;
@@ -259,11 +305,6 @@
         } else {
             delete pendingFiles[key]; checkConditions();
         }
-    }
-
-    function getFileUrl(fileKey) {
-        if (!fileKey) return null;
-        return currentData[fileKey] || currentData[fileKey.toLowerCase()] || currentData[fileKey.charAt(0).toUpperCase() + fileKey.slice(1).toLowerCase()];
     }
 
     function loadResearch(val) {
@@ -369,7 +410,6 @@
                 }
             }
 
-            // 🌟 แก้ไข: ถ้าขั้นตอนเสร็จแล้ว (val) การ์ดจะสว่าง ไม่ถูกล็อคความจาง (opacity)
             let cardStyle = 'bg-white';
             if (!val) {
                 if (needsCondition) cardStyle = 'condition-wait';
@@ -395,7 +435,6 @@
             const fileUrl = getSafeData(currentData, step.hasFile);
             if (val && fileUrl) {
                 if (step.key === 'protocol_draft' || currentPerms.canViewAllFiles) {
-                    // 🌟 เพิ่ม pointer-events: auto; เพื่อให้คลิกได้เสมอ แม้ว่าการ์ดโดยรวมจะโดนล็อคก็ตาม
                     html += `<div class="mt-2"><a href="${fileUrl}" target="_blank" class="badge bg-primary text-decoration-none p-2 shadow-sm" style="pointer-events: auto;">🔍 ดูไฟล์ที่แนบไว้</a></div>`;
                 } else {
                     html += `<div class="mt-2"><span class="badge bg-secondary p-1" style="font-size:0.75rem;">🔒 สงวนสิทธิ์เฉพาะผู้วิจัยและอาจารย์</span></div>`;
