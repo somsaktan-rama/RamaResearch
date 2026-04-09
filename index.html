@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.13</title>
+    <title>Research Rama Tracker v2.14</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -18,7 +18,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.33</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.34</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -130,6 +130,15 @@
 
     window.onload = () => { document.getElementById('login-status').innerText = "✅ พร้อมใช้งาน"; document.getElementById('login-status').className = "text-success fw-bold"; document.getElementById('login-btn').disabled = false; };
 
+    // ==========================================
+    // 🌟 ระบบตัดเลข 0 นำหน้า เพื่อเทียบรหัสให้ตรงกันเสมอ
+    // ==========================================
+    function isSameID(id1, id2) {
+        const c1 = (id1 || '').toString().replace(/^0+/, '') || '0';
+        const c2 = (id2 || '').toString().replace(/^0+/, '') || '0';
+        return c1 === c2;
+    }
+
     function login() {
         let id = document.getElementById('login-ramaid').value.trim();
         if (!id) return Swal.fire('แจ้งเตือน', 'กรุณาระบุ Rama ID', 'warning');
@@ -152,7 +161,6 @@
                 document.getElementById('display-username').innerText = data.currentUserName;
                 masterData = data;
                 
-                // เก็บค่าเก่าของ selector ไว้ เพื่อให้เวลาอัปเดต หน้าจอไม่เด้งกลับไปหน้าแรก
                 const oldSelection = document.getElementById('research-selector').value;
 
                 let html = '<option value="">-- เลือกงานวิจัย --</option>';
@@ -167,7 +175,6 @@
                 document.getElementById('login-section').style.display = 'none';
                 document.getElementById('app-section').style.display = 'block';
 
-                // โหลดหน้าจอเดิมกลับมาถ้าเคยเลือกไว้
                 if(oldSelection) {
                     document.getElementById('research-selector').value = oldSelection;
                     loadResearch(oldSelection);
@@ -193,8 +200,8 @@
         const msID = document.getElementById('ramaID_MS').value;
 
         const filteredList = fullList.filter(item => {
-            if (isDoctor && item.id == mrID) return false;
-            if (!isDoctor && item.id == msID) return false;
+            if (isDoctor && isSameID(item.id, mrID)) return false;
+            if (!isDoctor && isSameID(item.id, msID)) return false;
             return true;
         });
 
@@ -275,9 +282,11 @@
             currentData = { ...res };
             currentData.other_research = res.other_research ? res.other_research.split('\n').filter(n => n) : [];
             currentData.other_staff = res.other_staff ? res.other_staff.split('\n').filter(n => n) : [];
-            isViewer = (currentUser.id != currentData.ramaID_MR && currentUser.id != currentData.ramaID_MS);
             
-            const mrNameStr = currentData.main_research || masterData.doctors.find(d => d.id == currentData.ramaID_MR)?.name || currentData.ramaID_MR;
+            // อัปเดต: ใช้ isSameID ประเมินว่าใช่เจ้าของงานหรือไม่
+            isViewer = !isSameID(currentUser.id, currentData.ramaID_MR) && !isSameID(currentUser.id, currentData.ramaID_MS);
+            
+            const mrNameStr = currentData.main_research || masterData.doctors.find(d => isSameID(d.id, currentData.ramaID_MR))?.name || currentData.ramaID_MR;
             document.getElementById('mr_name_display').innerText = `👨‍⚕️ ผู้วิจัยหลัก (MR): ${mrNameStr}`;
             document.getElementById('mr_name_display').style.display = 'block';
 
@@ -313,8 +322,8 @@
         
         progressSteps.forEach(step => {
             const val = currentData[step.key];
-            const isMR = (currentUser.id == currentData.ramaID_MR);
-            const isMS = (currentUser.id == currentData.ramaID_MS);
+            const isMR = isSameID(currentUser.id, currentData.ramaID_MR);
+            const isMS = isSameID(currentUser.id, currentData.ramaID_MS);
             const isMyRole = (step.role === 'MR' && isMR) || (step.role === 'MS' && isMS);
             
             let locked = (!prevOk || !isMyRole || isViewer);
@@ -345,16 +354,15 @@
             }
 
             // ==========================================
-            // อัปเดตล่าสุด: จัดการสิทธิ์การดูไฟล์ของ Staff
+            // อัปเดตล่าสุด: จัดการสิทธิ์การดูไฟล์ด้วย isSameID 
             // ==========================================
             const fileUrl = getFileUrl(step.hasFile);
             if (val && fileUrl) {
-                // เช็คว่าผู้ใช้ล็อกอิน เป็นกลุ่ม "อาจารย์" (Staff) หรือไม่?
-                // โดยค้นหาว่ามี ID ตรงกับรายชื่อใน masterData.otherStaffs หรือไม่
-                const isStaffUser = masterData.otherStaffs.some(s => s.id == currentUser.id);
+                // เช็คว่าเป็น Staff ทั่วไป / อาจารย์ร่วม ด้วยรหัสที่ตัดเลข 0 ออกแล้ว
+                const isStaffUser = masterData.otherStaffs.some(s => isSameID(s.id, currentUser.id));
+                const isOS = currentData.other_staff && currentData.other_staff.includes(masterData.currentUserName);
 
-                // ปลดล็อคให้: 1.ไฟล์เปิดสาธารณะ(Protocol Draft) 2.ผู้วิจัยหลัก 3.อาจารย์ที่ปรึกษาหลัก 4.อาจารย์/Staff ทุกท่าน
-                if (step.key === 'protocol_draft' || isMR || isMS || isStaffUser) {
+                if (step.key === 'protocol_draft' || isMR || isMS || isOS || isStaffUser) {
                     html += `<div class="mt-2"><a href="${fileUrl}" target="_blank" class="badge bg-primary text-decoration-none p-2">🔍 ดูไฟล์ที่แนบไว้</a></div>`;
                 } else {
                     html += `<div class="mt-2"><span class="badge bg-secondary p-1" style="font-size:0.75rem;">🔒 สงวนสิทธิ์เฉพาะผู้วิจัยและอาจารย์</span></div>`;
@@ -459,7 +467,6 @@
             
             if (res.status === 'success') {
                 Swal.fire('สำเร็จ', res.message, 'success').then(() => {
-                    // เปลี่ยนจากการปิดฟอร์ม เป็นการรีเฟรชข้อมูลล่าสุดแทน
                     fetchInitialData(); 
                 });
             }
