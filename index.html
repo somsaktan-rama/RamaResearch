@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.3</title>
+    <title>Research Rama Tracker v2.4</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .step-card { border-left: 4px solid #0d6efd; margin-bottom: 15px; }
-        .step-locked { opacity: 0.5; pointer-events: none; border-left: 4px solid #6c757d; }
+        .step-card { border-left: 4px solid #0d6efd; margin-bottom: 15px; transition: 0.3s; }
+        .step-locked { opacity: 0.5; pointer-events: none; border-left: 4px solid #6c757d; background-color:#f1f3f5 !important; }
         .tag-item { display: inline-block; background: #e9ecef; border: 1px solid #dee2e6; border-radius: 15px; padding: 2px 10px; margin: 2px; font-size: 0.85rem; }
         .tag-remove { margin-left: 5px; cursor: pointer; color: #dc3545; font-weight: bold; }
     </style>
@@ -17,7 +17,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.22</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.23</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -25,14 +25,15 @@
         </div>
         <div class="mb-3">
             <label class="form-label">Rama ID</label>
-            <input type="tel" id="login-ramaid" class="form-control" placeholder="ระบุ Rama ID (ตัวเลขเท่านั้น)" inputmode="numeric">
+            <input type="tel" id="login-ramaid" class="form-control" placeholder="ระบุ Rama ID" inputmode="numeric">
         </div>
         <button id="login-btn" class="btn btn-primary w-100" onclick="login()" disabled>เข้าสู่ระบบ</button>
     </div>
 
     <div id="app-section" style="display:none;">
-        <div class="alert alert-info py-2 mb-3 shadow-sm">
-            👤 ผู้ใช้งาน: <span id="display-username" class="fw-bold text-primary"></span>
+        <div class="alert alert-info py-2 mb-3 shadow-sm d-flex justify-content-between align-items-center">
+            <span>👤 <span id="display-username" class="fw-bold text-primary"></span></span>
+            <span id="viewer-badge" class="badge bg-warning text-dark" style="display:none;">โหมดดูข้อมูล (Read-Only)</span>
         </div>
 
         <div class="mb-3">
@@ -53,7 +54,7 @@
                 <div class="mb-3">
                     <label class="form-label fw-bold">ทีมวิจัย (Other Research - แพทย์)</label>
                     <div id="other_research_list" class="mb-2 p-2 border rounded bg-light min-vh-5" style="min-height: 45px;"></div>
-                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="openPicker('doctor')">+ เพิ่มรายชื่อแพทย์</button>
+                    <button type="button" id="btn_add_doctor" class="btn btn-outline-primary btn-sm" onclick="openPicker('doctor')">+ เพิ่มรายชื่อแพทย์</button>
                 </div>
 
                 <div class="mb-3">
@@ -65,10 +66,10 @@
                 <div class="mb-3">
                     <label class="form-label fw-bold">อาจารย์ร่วม (Other Staff)</label>
                     <div id="other_staff_list" class="mb-2 p-2 border rounded bg-light min-vh-5" style="min-height: 45px;"></div>
-                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="openPicker('staff')">+ เพิ่มรายชื่ออาจารย์</button>
+                    <button type="button" id="btn_add_staff" class="btn btn-outline-primary btn-sm" onclick="openPicker('staff')">+ เพิ่มรายชื่ออาจารย์</button>
                 </div>
 
-                <div class="mb-3 mt-3 p-2 bg-light border rounded">
+                <div id="draft_upload_section" class="mb-3 mt-3 p-2 bg-light border rounded">
                     <label class="fw-bold">📄 แนบไฟล์ Draft Protocol (PDF)</label>
                     <input type="file" id="draft_link_file" class="form-control form-control-sm mt-1" accept=".pdf" onchange="renderProgress()">
                     <div id="existing_draft_link" class="mt-2" style="display:none;"></div>
@@ -81,8 +82,8 @@
             </div>
 
             <div class="d-flex gap-2">
-                <button type="button" class="btn btn-success w-100 py-2 fw-bold shadow" onclick="saveData()">💾 บันทึกข้อมูล</button>
-                <button type="button" class="btn btn-danger w-100 py-2" onclick="location.reload()">ยกเลิก</button>
+                <button type="button" id="save-btn" class="btn btn-success w-100 py-2 fw-bold shadow" onclick="saveData()">💾 บันทึกข้อมูล</button>
+                <button type="button" class="btn btn-danger w-100 py-2" onclick="location.reload()">ออก</button>
             </div>
         </form>
     </div>
@@ -94,6 +95,7 @@
     let currentUser = { id: '', ip: '' };
     let masterData = {};
     let currentData = { other_research: [], other_staff: [] }; 
+    let isViewer = false; // ตัวแปรคุมโหมด Read-only
     
     const progressSteps = [
         { key: 'protocol_draft', label: 'Protocol Draft', role: 'MR' },
@@ -102,7 +104,8 @@
         { key: 'MS_EC_subm', label: 'MS EC Submission', role: 'MS' },
         { key: 'EC_correct', label: 'EC Correction', role: 'MR' },
         { key: 'MS_EC_correct', label: 'MS EC Correction', role: 'MS' },
-        { key: 'EC_approve', label: 'EC Approve', role: 'MR', hasFile: 'EC_link' },
+        // อัปเดต: เพิ่ม needsDates สำหรับให้กรอกวันที่ตอน Approve
+        { key: 'EC_approve', label: 'EC Approve', role: 'MR', hasFile: 'EC_link', needsDates: true }, 
         { key: 'MS_EC_approve', label: 'MS EC Approve', role: 'MS' },
         { key: 'data_collect', label: 'Data Collect', role: 'MR' },
         { key: 'data_analysis', label: 'Data Analysis', role: 'MR' },
@@ -162,6 +165,7 @@
     }
 
     function openPicker(type) {
+        if(isViewer) return; // ล็อคไม่ให้คนดูเปิดเมนู
         const list = (type === 'doctor') ? masterData.doctors : masterData.otherStaffs;
         const currentField = (type === 'doctor') ? 'other_research' : 'other_staff';
         const alreadySelected = currentData[currentField];
@@ -186,8 +190,7 @@
         }).then((result) => {
             if (result.isConfirmed) {
                 const selected = [];
-                const checkboxes = document.querySelectorAll('.form-check-input:checked');
-                checkboxes.forEach(cb => selected.push(cb.value));
+                document.querySelectorAll('.form-check-input:checked').forEach(cb => selected.push(cb.value));
                 currentData[currentField] = selected;
                 updateTagDisplay(type);
             }
@@ -206,12 +209,13 @@
 
         container.innerHTML = data.map((name, index) => `
             <span class="tag-item">
-                ${name} <span class="tag-remove" onclick="removeTag('${type}', ${index})">×</span>
+                ${name} ${!isViewer ? `<span class="tag-remove" onclick="removeTag('${type}', ${index})">×</span>` : ''}
             </span>
         `).join('');
     }
 
     function removeTag(type, index) {
+        if(isViewer) return;
         const field = (type === 'doctor') ? 'other_research' : 'other_staff';
         currentData[field].splice(index, 1);
         updateTagDisplay(type);
@@ -223,41 +227,44 @@
         form.style.display = 'block';
 
         if (val === 'new') {
+            isViewer = false;
             currentData = { ramaID_MR: currentUser.id, other_research: [], other_staff: [] };
             form.reset();
             document.getElementById('Title').readOnly = false;
-            
-            // อัปเดต 2: ปลดล็อค Main Staff หากเป็นงานใหม่ และซ่อนลิงก์ไฟล์เดิม
             document.getElementById('ramaID_MS').disabled = false;
             document.getElementById('ms_lock_warning').style.display = 'none';
             document.getElementById('existing_draft_link').style.display = 'none';
-
         } else {
             const res = masterData.researches.find(r => r.rowIndex == val);
             currentData = { ...res };
             currentData.other_research = res.other_research ? res.other_research.split('\n').filter(n => n) : [];
             currentData.other_staff = res.other_staff ? res.other_staff.split('\n').filter(n => n) : [];
             
+            // เช็คว่าคนใช้ปัจจุบัน เป็นเพียงแค่ผู้เยี่ยมชม (Viewer) หรือไม่?
+            isViewer = (currentUser.id != currentData.ramaID_MR && currentUser.id != currentData.ramaID_MS);
+            
             document.getElementById('Title').value = res.Title || '';
             document.getElementById('Title').readOnly = true;
             document.getElementById('ramaID_MS').value = res.ramaID_MS || '';
-
-            // อัปเดต 3: ล็อค Main Staff ไม่ให้แก้ และแสดงลิงก์ไฟล์เดิมถ้ามี
             document.getElementById('ramaID_MS').disabled = true;
             document.getElementById('ms_lock_warning').style.display = 'block';
 
             const draftLinkContainer = document.getElementById('existing_draft_link');
             if(res.draft_link && res.draft_link.trim() !== '') {
-                draftLinkContainer.innerHTML = `<a href="${res.draft_link}" target="_blank" class="badge bg-primary text-decoration-none p-2">🔍 ดูไฟล์ Draft ที่แนบไว้แล้ว</a>`;
+                draftLinkContainer.innerHTML = `<a href="${res.draft_link}" target="_blank" class="badge bg-primary text-decoration-none p-2 mt-2">🔍 ดูไฟล์ Draft ที่แนบไว้แล้ว</a>`;
                 draftLinkContainer.style.display = 'block';
-            } else {
-                draftLinkContainer.style.display = 'none';
-            }
+            } else { draftLinkContainer.style.display = 'none'; }
         }
+
+        // --- ปรับ UI ตามโหมด isViewer ---
+        document.getElementById('viewer-badge').style.display = isViewer ? 'inline-block' : 'none';
+        document.getElementById('save-btn').style.display = isViewer ? 'none' : 'block';
+        document.getElementById('btn_add_doctor').style.display = isViewer ? 'none' : 'inline-block';
+        document.getElementById('btn_add_staff').style.display = isViewer ? 'none' : 'inline-block';
+        document.getElementById('draft_link_file').disabled = isViewer;
+
         updateTagDisplay('doctor');
         updateTagDisplay('staff');
-        
-        // ล้างค่าที่ค้างอยู่ในช่องเลือกไฟล์ใหม่ (เผื่อเปลี่ยนโปรเจกต์)
         document.getElementById('draft_link_file').value = '';
         renderProgress();
     }
@@ -269,42 +276,93 @@
         
         progressSteps.forEach(step => {
             const val = currentData[step.key];
-            const isMe = (step.role === 'MR' && currentUser.id == currentData.ramaID_MR) || 
-                         (step.role === 'MS' && currentUser.id == currentData.ramaID_MS);
+            const isMyRole = (step.role === 'MR' && currentUser.id == currentData.ramaID_MR) || 
+                             (step.role === 'MS' && currentUser.id == currentData.ramaID_MS);
             
-            let locked = (!prevOk || !isMe);
+            // ล็อคปุ่มถ้า: 1.คิวก่อนหน้ายังไม่เสร็จ 2.ไม่ใช่หน้าที่ 3.อยู่ในโหมดดูอย่างเดียว
+            let locked = (!prevOk || !isMyRole || isViewer);
 
-            // อัปเดต 4: เงื่อนไขบังคับแนบไฟล์สำหรับ Protocol Draft
-            if (step.key === 'protocol_draft') {
-                const fileInput = document.getElementById('draft_link_file');
-                const hasNewFile = fileInput && fileInput.files.length > 0;
-                const hasOldFile = currentData.draft_link && currentData.draft_link.trim() !== '';
+            // เงื่อนไขที่ 1: บังคับแนบไฟล์สำหรับ Protocol Draft
+            if (step.key === 'protocol_draft' && !val) {
+                const fDraft = document.getElementById('draft_link_file');
+                const hasNewDraft = fDraft && fDraft.files.length > 0;
+                const hasOldDraft = currentData.draft_link && currentData.draft_link.trim() !== '';
+                if (!hasNewDraft && !hasOldDraft) locked = true; 
+            }
 
-                if (!hasNewFile && !hasOldFile) {
+            // เงื่อนไขที่ 2: บังคับแนบไฟล์และกรอกวันที่ สำหรับ EC_Approve
+            if (step.key === 'EC_approve' && !val) {
+                const fEC = document.getElementById(`file_${step.key}`);
+                const d1 = document.getElementById('date_EC_approve');
+                const d2 = document.getElementById('date_EC_expire');
+                
+                const hasNewEC = fEC && fEC.files.length > 0;
+                const hasOldEC = currentData.EC_link && currentData.EC_link.trim() !== '';
+                const hasD1 = d1 && d1.value;
+                const hasD2 = d2 && d2.value;
+
+                if (!(hasNewEC || hasOldEC) || !hasD1 || !hasD2) {
                     locked = true; 
                 }
             }
 
-            container.innerHTML += `
-                <div class="card p-2 step-card mb-2 ${locked ? 'step-locked' : ''}">
+            let html = `
+                <div class="card p-2 step-card mb-2 ${locked ? 'step-locked' : 'bg-white'} shadow-sm">
                     <div class="d-flex justify-content-between align-items-center">
-                        <small class="fw-bold">${step.label}</small>
+                        <small class="fw-bold text-dark">${step.label} <span class="badge bg-secondary">${step.role}</span></small>
                         <button type="button" class="btn btn-sm ${val ? 'btn-success' : 'btn-outline-primary'}" 
                             onclick="stamp('${step.key}')" ${locked ? 'disabled' : ''}>
                             ${val || 'ลงเวลา'}
                         </button>
+                    </div>`;
+
+            // เพิ่มช่อง Upload ไฟล์ ถ้าถึงสเต็ป
+            if(step.hasFile && prevOk && isMyRole && !val && !isViewer) {
+                html += `<div class="mt-2"><input type="file" id="file_${step.key}" class="form-control form-control-sm" accept=".pdf" onchange="renderProgress()"></div>`;
+            }
+
+            // แสดงปุ่มดูไฟล์เก่า (ถ้าเคยอัปโหลดไว้)
+            if (val && currentData[step.hasFile]) {
+                html += `<div class="mt-2"><a href="${currentData[step.hasFile]}" target="_blank" class="badge bg-primary text-decoration-none">🔍 ดูไฟล์ที่แนบไว้</a></div>`;
+            }
+
+            // ฟีเจอร์พิเศษ: เพิ่มช่องกรอกวันที่สำหรับ EC_approve
+            if (step.needsDates && prevOk && isMyRole && !val && !isViewer) {
+                html += `
+                <div class="mt-2 row gx-2 bg-light p-2 rounded border">
+                    <div class="col-6">
+                        <label class="small text-muted fw-bold">วันที่ EC อนุมัติ</label>
+                        <input type="date" id="date_EC_approve" class="form-control form-control-sm" onchange="renderProgress()">
+                    </div>
+                    <div class="col-6">
+                        <label class="small text-muted fw-bold">วันหมดอายุ</label>
+                        <input type="date" id="date_EC_expire" class="form-control form-control-sm" onchange="renderProgress()">
                     </div>
                 </div>`;
-            if (!val) prevOk = false;
+            }
+            // ถ้าลงเวลาไปแล้ว ให้โชว์วันที่
+            if (step.needsDates && val) {
+                html += `<div class="mt-2 small text-success fw-bold">📅 อนุมัติ: ${currentData.EC_approve_date || '-'} | หมดอายุ: ${currentData.EC_expire_date || '-'}</div>`;
+            }
+
+            html += `</div>`;
+            container.innerHTML += html;
+            if (!val) prevOk = false; 
         });
     }
 
     function stamp(key) {
+        // ถ้าเป็นการกดของ EC_approve ให้ดึงวันที่ไปเก็บในข้อมูลด้วย
+        if(key === 'EC_approve') {
+            currentData['EC_approve_date'] = document.getElementById('date_EC_approve').value;
+            currentData['EC_expire_date'] = document.getElementById('date_EC_expire').value;
+        }
         currentData[key] = new Date().toLocaleString('th-TH');
         renderProgress();
     }
 
     async function saveData() {
+        if(isViewer) return; // ป้องกันเผื่อหลุดเข้ามากด
         try {
             Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             
@@ -325,9 +383,9 @@
                 reader.onerror = error => reject(error);
             });
 
+            // ดึงไฟล์เตรียมส่ง
             payload.draftLinkBase64 = await fileToBase64('draft_link_file');
-            // กรณีมีช่องไฟล์อื่นๆ ในอนาคต ให้แปลงแบบนี้เช่นกัน:
-            // payload.ecLinkBase64 = await fileToBase64('file_EC_approve');
+            payload.ecLinkBase64 = await fileToBase64('file_EC_approve');
             // payload.manuLinkBase64 = await fileToBase64('file_manu_accept');
 
             const resp = await fetch(GAS_URL, {
