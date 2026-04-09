@@ -3,19 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.1</title>
+    <title>Research Rama Tracker v2.2</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .step-card { border-left: 4px solid #0d6efd; margin-bottom: 15px; }
         .step-locked { opacity: 0.5; pointer-events: none; border-left: 4px solid #6c757d; }
+        .tag-item { display: inline-block; background: #e9ecef; border: 1px solid #dee2e6; border-radius: 15px; padding: 2px 10px; margin: 2px; font-size: 0.85rem; }
+        .tag-remove { margin-left: 5px; cursor: pointer; color: #dc3545; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ิดตามงานวิจัยผิวหนัง รามาธิบดี 1.21</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.21</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -23,20 +25,19 @@
         </div>
         <div class="mb-3">
             <label class="form-label">Rama ID</label>
-            <input type="tel" id="login-ramaid" class="form-control" placeholder="ระบุ Rama ID (ตัวเลขเท่านั้น)" inputmode="numeric" pattern="[0-9]*">
+            <input type="tel" id="login-ramaid" class="form-control" placeholder="ระบุ Rama ID (ตัวเลขเท่านั้น)" inputmode="numeric">
         </div>
         <button id="login-btn" class="btn btn-primary w-100" onclick="login()" disabled>เข้าสู่ระบบ</button>
     </div>
 
     <div id="app-section" style="display:none;">
-        
         <div class="alert alert-info py-2 mb-3 shadow-sm">
             👤 ผู้ใช้งาน: <span id="display-username" class="fw-bold text-primary"></span>
         </div>
 
         <div class="mb-3">
             <label class="form-label fw-bold">เลือกงานวิจัย</label>
-            <select id="research-selector" class="form-select border-primary" onchange="loadResearch(this.value)">
+            <select id="research-selector" class="form-select border-primary shadow-sm" onchange="loadResearch(this.value)">
                 <option value="">-- กำลังโหลดข้อมูล... --</option>
             </select>
         </div>
@@ -45,32 +46,32 @@
             <div class="card shadow-sm p-3 mb-4">
                 <h5 class="border-bottom pb-2 text-primary">ข้อมูลทั่วไป</h5>
                 <div class="mb-2">
-                    <label>Title (ชื่อเรื่อง)</label>
+                    <label class="form-label">Title (ชื่อเรื่อง)</label>
                     <input type="text" id="Title" class="form-control" required>
                 </div>
-                <div class="mb-2">
-                    <label>Main Research (MR)</label>
-                    <input type="text" id="ramaID_MR" class="form-control" readonly>
-                </div>
                 
-                <div class="mb-2">
-                    <label class="fw-bold">Other Research (แพทย์)</label>
-                    <div id="other_research_display" class="p-2 border rounded bg-light mb-1" style="display:none; white-space: pre-wrap; font-size: 0.9rem;"></div>
-                    <select id="other_research" class="form-select" multiple style="min-height: 100px;"></select>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">ทีมวิจัย (Other Research - แพทย์)</label>
+                    <div id="other_research_list" class="mb-2 p-2 border rounded bg-light min-vh-5" style="min-height: 45px;">
+                        <span class="text-muted small">ยังไม่ได้เลือกรายชื่อ</span>
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="openPicker('doctor')">+ เพิ่มรายชื่อแพทย์</button>
                 </div>
 
-                <div class="mb-2">
-                    <label>Main Staff (MS - อาจารย์ที่ปรึกษาหลัก)</label>
+                <div class="mb-3">
+                    <label class="form-label">Main Staff (อาจารย์ที่ปรึกษาหลัก)</label>
                     <select id="ramaID_MS" class="form-select" required></select>
                 </div>
-                
-                <div class="mb-2">
-                    <label class="fw-bold">Other Staff (อาจารย์)</label>
-                    <div id="other_staff_display" class="p-2 border rounded bg-light mb-1" style="display:none; white-space: pre-wrap; font-size: 0.9rem;"></div>
-                    <select id="other_staff" class="form-select" multiple style="min-height: 100px;"></select>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">อาจารย์ร่วม (Other Staff)</label>
+                    <div id="other_staff_list" class="mb-2 p-2 border rounded bg-light min-vh-5" style="min-height: 45px;">
+                        <span class="text-muted small">ยังไม่ได้เลือกรายชื่อ</span>
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="openPicker('staff')">+ เพิ่มรายชื่ออาจารย์</button>
                 </div>
 
-                <div class="mb-2 mt-3 p-2 bg-light border rounded">
+                <div class="mb-3 mt-3 p-2 bg-light border rounded">
                     <label class="fw-bold">📄 แนบไฟล์ Draft Protocol (PDF)</label>
                     <input type="file" id="draft_link_file" class="form-control form-control-sm mt-1" accept=".pdf">
                 </div>
@@ -82,20 +83,19 @@
             </div>
 
             <div class="d-flex gap-2">
-                <button type="button" class="btn btn-success w-100 py-2 fw-bold" onclick="saveData()">💾 บันทึกข้อมูล</button>
-                <button type="button" class="btn btn-danger w-100 py-2" onclick="location.reload()">ยกเลิก / ออก</button>
+                <button type="button" class="btn btn-success w-100 py-2 fw-bold shadow" onclick="saveData()">💾 บันทึกข้อมูล</button>
+                <button type="button" class="btn btn-danger w-100 py-2" onclick="location.reload()">ยกเลิก</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-    // 🚨 🚨 🚨 ใส่ URL ของ Google Apps Script ของคุณที่นี่ 🚨 🚨 🚨
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbyPuWxqyYQ7ulh0Dyb-fgc29FbtYfoSHtu9MgN-Rih9PKKshHDuiDncC6qZJe6OoGU/exec';
     
     let currentUser = { id: '', ip: '' };
     let masterData = {};
-    let currentData = {};
+    let currentData = { other_research: [], other_staff: [] }; // เปลี่ยนเป็น Array เพื่อจัดการง่ายขึ้น
     
     const progressSteps = [
         { key: 'protocol_draft', label: 'Protocol Draft', role: 'MR' },
@@ -119,18 +119,7 @@
         { key: 'MS_manu_accept', label: 'MS Final Accept', role: 'MS' }
     ];
 
-    window.onload = async function() {
-        try {
-            if (!navigator.userAgent.includes("LINE")) {
-                let response = await fetch('https://api.ipify.org?format=json').catch(() => null);
-                if(response) {
-                    let data = await response.json();
-                    currentUser.ip = data.ip; 
-                }
-            }
-        } catch(e) { console.log("ข้ามการดึง IP"); } 
-        finally { enableLogin(); }
-    };
+    window.onload = () => { enableLogin(); };
 
     function enableLogin() {
         document.getElementById('login-status').innerText = "✅ พร้อมใช้งาน";
@@ -146,205 +135,167 @@
     }
 
     function fetchInitialData() {
-        Swal.fire({ title: 'กำลังตรวจสอบข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: 'กำลังโหลดข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         fetch(`${GAS_URL}?action=getInitialData&ramaID=${currentUser.id}`)
             .then(res => res.json())
             .then(data => {
-                if(data.error) return Swal.fire('เกิดข้อผิดพลาด', data.error, 'error');
-                if(data.currentUserName === "ไม่พบชื่อในระบบ") {
-                    document.getElementById('login-ramaid').value = ''; 
-                    return Swal.fire('ไม่อนุญาต', 'ไม่พบ Rama ID นี้ในระบบ', 'warning');
-                }
+                if(data.error) return Swal.fire('Error', data.error, 'error');
+                if(data.currentUserName === "ไม่พบชื่อในระบบ") return Swal.fire('ไม่อนุญาต', 'ไม่พบรหัสนี้', 'warning');
+                
                 document.getElementById('display-username').innerText = data.currentUserName;
-                populateDropdowns(data);
-            }).catch(err => {
-                console.error(err);
-                Swal.fire('Error', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
-            });
+                masterData = data;
+                renderResearchSelector();
+                
+                // ใส่ข้อมูลอาจารย์หลัก
+                let msHTML = '<option value="">-- เลือกอาจารย์ที่ปรึกษา --</option>';
+                data.mainStaffs.forEach(s => msHTML += `<option value="${s.id}">${s.name}</option>`);
+                document.getElementById('ramaID_MS').innerHTML = msHTML;
+
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('app-section').style.display = 'block';
+                Swal.close();
+            }).catch(e => Swal.fire('Error', 'เชื่อมต่อล้มเหลว', 'error'));
     }
 
-    function populateDropdowns(data) {
-        try {
-            masterData = data;
-            
-            let researchHTML = '<option value="">-- กรุณาเลือก --</option>'; 
-            if (data.researches && data.researches.length > 0) {
-                data.researches.forEach((res, i) => {
-                    let title = res.Title || res.title || res.TITLE || `งานวิจัย (ไม่มีชื่อ) แถวที่ ${res.rowIndex}`;
-                    let val = res.rowIndex || i;
-                    researchHTML += `<option value="${val}">${title}</option>`;
-                });
+    function renderResearchSelector() {
+        let html = '<option value="">-- เลือกงานวิจัย --</option>';
+        masterData.researches.forEach(r => html += `<option value="${r.rowIndex}">${r.Title || 'ไม่ระบุชื่อ'}</option>`);
+        html += `<option value="new">+ สร้างงานวิจัยใหม่</option>`;
+        document.getElementById('research-selector').innerHTML = html;
+    }
+
+    // --- ฟังก์ชันเลือกรายชื่อแบบ Modal ---
+    function openPicker(type) {
+        const list = (type === 'doctor') ? masterData.doctors : masterData.otherStaffs;
+        const currentField = (type === 'doctor') ? 'other_research' : 'other_staff';
+        const alreadySelected = currentData[currentField];
+
+        let optionsHTML = `<div class="text-start" style="max-height: 300px; overflow-y: auto;">`;
+        list.forEach(item => {
+            const checked = alreadySelected.includes(item.name) ? 'checked' : '';
+            optionsHTML += `
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" value="${item.name}" id="chk_${item.id}" ${checked}>
+                    <label class="form-check-label" for="chk_${item.id}">${item.name}</label>
+                </div>`;
+        });
+        optionsHTML += `</div>`;
+
+        Swal.fire({
+            title: (type === 'doctor') ? 'เลือกรายชื่อแพทย์' : 'เลือกรายชื่ออาจารย์',
+            html: optionsHTML,
+            showCancelButton: true,
+            confirmButtonText: 'ตกลง',
+            cancelButtonText: 'ยกเลิก'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const selected = [];
+                const checkboxes = document.querySelectorAll('.form-check-input:checked');
+                checkboxes.forEach(cb => selected.push(cb.value));
+                currentData[currentField] = selected;
+                updateTagDisplay(type);
             }
-            researchHTML += '<option value="new" class="text-primary fw-bold">+ สร้างงานวิจัยใหม่</option>';
-            document.getElementById('research-selector').innerHTML = researchHTML; 
-
-            let msHTML = '<option value="">-- เลือกอาจารย์ที่ปรึกษาหลัก --</option>';
-            if(data.mainStaffs) data.mainStaffs.forEach(s => msHTML += `<option value="${s.id}">${s.name}</option>`);
-            document.getElementById('ramaID_MS').innerHTML = msHTML;
-
-            let orHTML = '';
-            if(data.doctors) data.doctors.forEach(d => orHTML += `<option value="${d.id}">${d.name}</option>`);
-            document.getElementById('other_research').innerHTML = orHTML;
-
-            let osHTML = '';
-            if(data.otherStaffs) data.otherStaffs.forEach(s => osHTML += `<option value="${s.id}">${s.name}</option>`);
-            document.getElementById('other_staff').innerHTML = osHTML;
-
-            document.getElementById('login-section').style.display = 'none';
-            document.getElementById('app-section').style.display = 'block';
-            Swal.close(); 
-        } catch (error) {
-            console.error(error);
-            Swal.fire('ข้อผิดพลาด', 'แสดงผล Dropdown ไม่สำเร็จ', 'error');
-        }
+        });
     }
 
-    // ฟังก์ชันใหม่: สลับการแสดงผล โชว์ข้อความ หรือ โชว์ Dropdown
-    function toggleDropdownVisibility(fieldKey, selectId, displayId) {
-        const select = document.getElementById(selectId);
-        const display = document.getElementById(displayId);
-        const value = currentData[fieldKey];
+    function updateTagDisplay(type) {
+        const field = (type === 'doctor') ? 'other_research' : 'other_staff';
+        const container = document.getElementById(field + '_list');
+        const data = currentData[field];
 
-        if (value && value.toString().trim() !== "") {
-            display.innerText = value;
-            display.style.display = 'block';
-            select.style.display = 'none';
-        } else {
-            display.style.display = 'none';
-            select.style.display = 'block';
+        if (data.length === 0) {
+            container.innerHTML = '<span class="text-muted small">ยังไม่ได้เลือกรายชื่อ</span>';
+            return;
         }
+
+        container.innerHTML = data.map((name, index) => `
+            <span class="tag-item">
+                ${name}
+                <span class="tag-remove" onclick="removeTag('${type}', ${index})">×</span>
+            </span>
+        `).join('');
+    }
+
+    function removeTag(type, index) {
+        const field = (type === 'doctor') ? 'other_research' : 'other_staff';
+        currentData[field].splice(index, 1);
+        updateTagDisplay(type);
     }
 
     function loadResearch(val) {
         const form = document.getElementById('research-form');
-        if (!val) { form.style.display = 'none'; return; }
+        if (!val) return form.style.display = 'none';
+        form.style.display = 'block';
 
-        form.style.display = 'block'; 
-        
         if (val === 'new') {
-            currentData = { ramaID_MR: currentUser.id };
-            form.reset(); 
-            document.getElementById('ramaID_MR').value = currentUser.id;
+            currentData = { ramaID_MR: currentUser.id, other_research: [], other_staff: [] };
+            form.reset();
             document.getElementById('Title').readOnly = false;
-            
-            // งานวิจัยใหม่ ให้โชว์ Dropdown ให้เลือกคนเสมอ
-            toggleDropdownVisibility('other_research', 'other_research', 'other_research_display');
-            toggleDropdownVisibility('other_staff', 'other_staff', 'other_staff_display');
         } else {
-            currentData = masterData.researches.find(r => r.rowIndex == val);
-            document.getElementById('Title').value = currentData.Title || "";
-            document.getElementById('Title').readOnly = true; 
-            document.getElementById('ramaID_MR').value = currentData.ramaID_MR || "";
-            document.getElementById('ramaID_MS').value = currentData.ramaID_MS || "";
+            const res = masterData.researches.find(r => r.rowIndex == val);
+            currentData = { ...res };
+            // แปลงข้อมูลจาก Sheet (บรรทัดใหม่) เป็น Array
+            currentData.other_research = res.other_research ? res.other_research.split('\n').filter(n => n) : [];
+            currentData.other_staff = res.other_staff ? res.other_staff.split('\n').filter(n => n) : [];
             
-            // เช็คว่ามีข้อมูลเดิมไหม ถ้ามีก็โชว์ข้อความ ถ้าไม่มีก็โชว์ Dropdown
-            toggleDropdownVisibility('other_research', 'other_research', 'other_research_display');
-            toggleDropdownVisibility('other_staff', 'other_staff', 'other_staff_display');
+            document.getElementById('Title').value = res.Title || '';
+            document.getElementById('Title').readOnly = true;
+            document.getElementById('ramaID_MS').value = res.ramaID_MS || '';
         }
-        renderProgress(); 
+        updateTagDisplay('doctor');
+        updateTagDisplay('staff');
+        renderProgress();
     }
 
     function renderProgress() {
         const container = document.getElementById('progress-container');
         container.innerHTML = '';
-        let previousFilled = true; 
-        
-        progressSteps.forEach((step) => {
-            const isFilled = currentData[step.key] ? true : false;
-            const isMyRole = (step.role === 'MR' && currentUser.id == currentData.ramaID_MR) || 
-                             (step.role === 'MS' && currentUser.id == currentData.ramaID_MS);
+        let prevOk = true;
+        progressSteps.forEach(step => {
+            const val = currentData[step.key];
+            const isMe = (step.role === 'MR' && currentUser.id == currentData.ramaID_MR) || 
+                         (step.role === 'MS' && currentUser.id == masterData.researches.find(r => r.rowIndex == document.getElementById('research-selector').value)?.ramaID_MS);
             
-            const lockedClass = (!previousFilled || !isMyRole) ? 'step-locked' : '';
-            
-            let html = `
-            <div class="card p-2 step-card ${lockedClass} bg-white shadow-sm">
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="fw-bold text-dark" style="font-size:0.9rem;">${step.label} <span class="badge bg-secondary">${step.role}</span></span>
-                    <button type="button" class="btn btn-sm ${isFilled ? 'btn-success' : 'btn-outline-primary'}"
-                        onclick="stampTime('${step.key}')" ${!previousFilled || !isMyRole ? 'disabled' : ''}>
-                        ${isFilled ? currentData[step.key] : 'ลงเวลา'}
-                    </button>
-                </div>
-            `;
-            
-            if(step.hasFile && previousFilled && isMyRole && !isFilled) {
-                html += `<div class="mt-2"><input type="file" id="file_${step.key}" class="form-control form-control-sm" accept=".pdf"></div>`;
-            }
-            
-            html += `</div>`;
-            container.innerHTML += html;
-            
-            if (!isFilled) previousFilled = false; 
+            const locked = (!prevOk || !isMe);
+            container.innerHTML += `
+                <div class="card p-2 step-card mb-2 ${locked ? 'step-locked' : ''}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="fw-bold">${step.label}</small>
+                        <button type="button" class="btn btn-sm ${val ? 'btn-success' : 'btn-outline-primary'}" 
+                            onclick="stamp('${step.key}')" ${locked ? 'disabled' : ''}>
+                            ${val || 'ลงเวลา'}
+                        </button>
+                    </div>
+                </div>`;
+            if (!val) prevOk = false;
         });
     }
 
-    function stampTime(key) {
-        const now = new Date().toLocaleString('th-TH');
-        currentData[key] = now;
-        renderProgress(); 
-    }
-
-    // ฟังก์ชันใหม่: ดึงชื่อคนที่ถูกเลือก คั่นด้วยการขึ้นบรรทัดใหม่
-    function getMultiValues(selectId) {
-        const select = document.getElementById(selectId);
-        // ถ้าช่องเลือกถูกซ่อนอยู่ แสดงว่ามีข้อมูลเดิมแล้ว ห้ามส่งค่าว่างไปทับ
-        if(!select || select.style.display === 'none') return null; 
-        return Array.from(select.selectedOptions).map(opt => opt.text).join('\n');
+    function stamp(key) {
+        currentData[key] = new Date().toLocaleString('th-TH');
+        renderProgress();
     }
 
     async function saveData() {
         try {
-            Swal.fire({ title: '1. กำลังเตรียมข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             
-            currentData.Title = document.getElementById('Title').value;
-            if(!currentData.Title) throw new Error("กรุณาระบุชื่อเรื่อง (Title)");
-
-            const msSelect = document.getElementById('ramaID_MS');
-            currentData.ramaID_MS = msSelect.value;
-            currentData.main_staff = msSelect.options[msSelect.selectedIndex]?.text || "";
+            const payload = { ...currentData };
+            payload.Title = document.getElementById('Title').value;
+            payload.ramaID_MS = document.getElementById('ramaID_MS').value;
+            payload.main_staff = document.getElementById('ramaID_MS').options[document.getElementById('ramaID_MS').selectedIndex]?.text;
             
-            // ดึงค่า Other Research และ Other Staff แบบใหม่
-            const newOtherRes = getMultiValues('other_research');
-            if (newOtherRes !== null) currentData.other_research = newOtherRes;
+            // แปลง Array กลับเป็น String ขึ้นบรรทัดใหม่เพื่อเซฟลง Sheet
+            payload.other_research = currentData.other_research.join('\n');
+            payload.other_staff = currentData.other_staff.join('\n');
 
-            const newOtherStaff = getMultiValues('other_staff');
-            if (newOtherStaff !== null) currentData.other_staff = newOtherStaff;
-
-            const fileToBase64 = (fileInputId) => new Promise((resolve, reject) => {
-                const fileInput = document.getElementById(fileInputId);
-                if (!fileInput || fileInput.files.length === 0) return resolve(null);
-                const reader = new FileReader();
-                reader.readAsDataURL(fileInput.files[0]);
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = error => reject(error);
-            });
-
-            Swal.fire({ title: '2. จัดการไฟล์แนบ (ถ้ามี)...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-            currentData.draftLinkBase64 = await fileToBase64('draft_link_file');
-            currentData.ecLinkBase64 = await fileToBase64('file_EC_approve');
-            currentData.manuLinkBase64 = await fileToBase64('file_manu_accept');
-
-            Swal.fire({ title: '3. กำลังส่งขึ้นระบบฐานข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-            
-            const response = await fetch(GAS_URL, {
+            const resp = await fetch(GAS_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'saveResearch', payload: currentData })
+                body: JSON.stringify({ action: 'saveResearch', payload: payload })
             });
-
-            const resultText = await response.text(); 
-            const result = JSON.parse(resultText); 
-
-            if (result.status === 'success') {
-                Swal.fire('บันทึกสำเร็จ!', result.message, 'success').then(() => location.reload());
-            } else {
-                throw new Error(result.message || 'ไม่ทราบสาเหตุจาก Server');
-            }
-
-        } catch (error) {
-            console.error(error);
-            Swal.fire('บันทึกไม่สำเร็จ', error.message, 'error');
-        }
+            const res = await resp.json();
+            if (res.status === 'success') Swal.fire('สำเร็จ', res.message, 'success').then(() => location.reload());
+        } catch (e) { Swal.fire('Error', 'บันทึกไม่สำเร็จ', 'error'); }
     }
 </script>
 </body>
