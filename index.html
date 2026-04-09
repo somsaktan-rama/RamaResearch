@@ -18,7 +18,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.35 Debug</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.35 isMS/Debug</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -371,7 +371,7 @@
                 html += `<div class="mt-2"><input type="file" id="file_${step.key}" class="form-control form-control-sm" accept=".pdf" onchange="handleFileSelect('${step.key}', this.id)"></div>`;
             }
 
-            // ==========================================
+			// ==========================================
             // 🌟 อัปเดตล่าสุด: สแกนสิทธิ์แบบตัดช่องว่างแฝง
             // ==========================================
             const fileUrl = getFileUrl(step.hasFile);
