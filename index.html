@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.15</title>
+    <title>Research Rama Tracker v2.16</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -18,7 +18,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.35 isMS/Debug</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.36</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -32,10 +32,10 @@
     </div>
 
     <div id="app-section" style="display:none;">
-        <div class="alert alert-info py-2 mb-3 shadow-sm d-flex justify-content-between align-items-center">
+        <div class="alert alert-info py-2 mb-3 shadow-sm d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span>👤 <span id="display-username" class="fw-bold text-primary"></span></span>
-            <div>
-                <span id="viewer-badge" class="badge bg-danger text-white shadow-sm me-1" style="display:none;">👁️ ดูข้อมูล</span>
+            <div class="text-end">
+                <span id="role-badge" class="badge bg-secondary shadow-sm me-1" style="display:none; font-size: 0.8rem;">กำลังตรวจสอบสิทธิ์...</span>
                 <button class="btn btn-sm btn-outline-primary bg-white me-1" onclick="fetchInitialData()">🔄 รีเฟรช</button>
                 <button class="btn btn-sm btn-outline-danger bg-white" onclick="location.reload()">🚪 ออก</button>
             </div>
@@ -104,6 +104,7 @@
     let currentData = { other_research: [], other_staff: [] }; 
     let isViewer = false; 
     let pendingFiles = {}; 
+    let currentPerms = {}; // ตัวแปรเก็บสิทธิ์แบบ Global
     
     const progressSteps = [
         { key: 'protocol_draft', label: 'Protocol Draft', role: 'MR', hasFile: 'draft_link' },
@@ -183,6 +184,7 @@
     function closeForm() {
         document.getElementById('research-form').style.display = 'none';
         document.getElementById('research-selector').value = '';
+        document.getElementById('role-badge').style.display = 'none';
     }
 
     function openPicker(type) {
@@ -260,11 +262,10 @@
         const form = document.getElementById('research-form');
         pendingFiles = {}; 
 
-        if (!val) return form.style.display = 'none';
+        if (!val) { closeForm(); return; }
         form.style.display = 'block';
 
         if (val === 'new') {
-            isViewer = false;
             currentData = { ramaID_MR: currentUser.id, other_research: [], other_staff: [] };
             form.reset();
             currentData.main_research = masterData.currentUserName;
@@ -278,7 +279,6 @@
             currentData = { ...res };
             currentData.other_research = res.other_research ? res.other_research.split('\n').filter(n => n) : [];
             currentData.other_staff = res.other_staff ? res.other_staff.split('\n').filter(n => n) : [];
-            isViewer = !isSameID(currentUser.id, currentData.ramaID_MR) && !isSameID(currentUser.id, currentData.ramaID_MS);
             
             const mrNameStr = currentData.main_research || masterData.doctors.find(d => isSameID(d.id, currentData.ramaID_MR))?.name || currentData.ramaID_MR;
             document.getElementById('mr_name_display').innerText = `👨‍⚕️ ผู้วิจัยหลัก (MR): ${mrNameStr}`;
@@ -297,31 +297,39 @@
             } else { draftLinkContainer.style.display = 'none'; }
         }
 
-			// ==========================================
-            // 🚨 โค้ดสำหรับตรวจสอบ (DEBUG)
-            // ==========================================
-            console.log("=== 🔍 เริ่มการตรวจสอบสิทธิ์ ===");
-            console.log("1. รหัสผู้ใช้ที่ล็อกอิน (currentUser.id):", `"${currentUser.id}"`);
-            console.log("2. รหัสอาจารย์ที่ปรึกษา (currentData.ramaID_MS):", `"${currentData.ramaID_MS}"`);
-            
-            // เช็คการเทียบ isMS
-            const checkIsMS = isSameID(currentUser.id, currentData.ramaID_MS);
-            console.log("3. ผลการเช็ค isMS (ตรงกันไหม?):", checkIsMS);
+        // ==========================================
+        // 🌟 อัปเดตล่าสุด: คำนวณสิทธิ์ให้จบที่เดียวตรงนี้ 🌟
+        // ==========================================
+        const myName = (masterData.currentUserName || "").trim();
+        
+        currentPerms.isMR = isSameID(currentUser.id, currentData.ramaID_MR);
+        currentPerms.isMS = isSameID(currentUser.id, currentData.ramaID_MS);
+        currentPerms.isOS = currentData.other_staff.some(n => n.trim() === myName);
+        currentPerms.isOR = currentData.other_research.some(n => n.trim() === myName);
+        currentPerms.isStaffGroup = (masterData.otherStaffs || []).some(s => isSameID(s.id, currentUser.id));
 
-            // เช็ครายชื่อ Staff ทั้งหมด
-            console.log("4. รายชื่ออาจารย์ทั้งหมดในระบบ (masterData.otherStaffs):", masterData.otherStaffs);
-            
-            // ลองค้นหาตัวเราเองในกลุ่ม Staff
-            const foundInStaff = masterData.otherStaffs.find(s => isSameID(s.id, currentUser.id));
-            if(foundInStaff) {
-                console.log(`5. ผลการเช็ค isStaffUser: ✅ พบข้อมูล (ชื่อ: ${foundInStaff.name}, ID ในระบบ: "${foundInStaff.id}")`);
-            } else {
-                console.log("5. ผลการเช็ค isStaffUser: ❌ ไม่พบรหัสนี้ในรายชื่อ Staff");
-            }
-            console.log("===============================");
-            // ==========================================
+        // อนุญาตให้ดูทุกไฟล์ได้ ถ้าเป็นใครก็ตามในนี้
+        currentPerms.canViewAllFiles = currentPerms.isMR || currentPerms.isMS || currentPerms.isOS || currentPerms.isStaffGroup;
+        
+        // กำหนดโหมด Viewer (ถ้าไม่ใช่เจ้าของงาน/อาจารย์หลัก ก็เป็น Viewer ห้ามกดปุ่มลงเวลา)
+        isViewer = !currentPerms.isMR && !currentPerms.isMS;
 
-        document.getElementById('viewer-badge').style.display = isViewer ? 'inline-block' : 'none';
+        // วาดป้ายบอกสิทธิ์ให้ผู้ใช้รู้ตัว
+        let badgeText = "ผู้เยี่ยมชม (ไม่มีสิทธิ์)";
+        let badgeClass = "bg-secondary";
+        
+        if (currentPerms.isMR) { badgeText = "ผู้วิจัยหลัก (MR)"; badgeClass = "bg-success"; }
+        else if (currentPerms.isMS) { badgeText = "อ.ที่ปรึกษา (MS)"; badgeClass = "bg-primary"; }
+        else if (currentPerms.isOS) { badgeText = "อาจารย์ร่วม (OS)"; badgeClass = "bg-info text-dark"; }
+        else if (currentPerms.isStaffGroup) { badgeText = "ทีมอาจารย์ (Staff)"; badgeClass = "bg-info text-dark"; }
+        else if (currentPerms.isOR) { badgeText = "แพทย์ร่วม (OR)"; badgeClass = "bg-warning text-dark"; }
+
+        const badgeEl = document.getElementById('role-badge');
+        badgeEl.innerText = `🛡️ สิทธิ์: ${badgeText}`;
+        badgeEl.className = `badge shadow-sm me-1 ${badgeClass}`;
+        badgeEl.style.display = 'inline-block';
+
+        // ปิดซ่อนปุ่มตามโหมด
         document.getElementById('save-btn').style.display = isViewer ? 'none' : 'block';
         document.getElementById('btn_add_doctor').style.display = isViewer ? 'none' : 'inline-block';
         document.getElementById('btn_add_staff').style.display = isViewer ? 'none' : 'inline-block';
@@ -340,9 +348,7 @@
         
         progressSteps.forEach(step => {
             const val = currentData[step.key];
-            const isMR = isSameID(currentUser.id, currentData.ramaID_MR);
-            const isMS = isSameID(currentUser.id, currentData.ramaID_MS);
-            const isMyRole = (step.role === 'MR' && isMR) || (step.role === 'MS' && isMS);
+            const isMyRole = (step.role === 'MR' && currentPerms.isMR) || (step.role === 'MS' && currentPerms.isMS);
             
             let locked = (!prevOk || !isMyRole || isViewer);
             let needsCondition = false;
@@ -371,25 +377,14 @@
                 html += `<div class="mt-2"><input type="file" id="file_${step.key}" class="form-control form-control-sm" accept=".pdf" onchange="handleFileSelect('${step.key}', this.id)"></div>`;
             }
 
-			// ==========================================
-            // 🌟 อัปเดตล่าสุด: สแกนสิทธิ์แบบตัดช่องว่างแฝง
+            // ==========================================
+            // ดึงสิทธิ์ canViewAllFiles มาใช้แบบตรงๆ เลย
             // ==========================================
             const fileUrl = getFileUrl(step.hasFile);
             if (val && fileUrl) {
-                const myName = (masterData.currentUserName || "").trim();
-                
-                // ตรวจสอบว่าเป็น อาจารย์ร่วม หรือไม่
-                const osArray = Array.isArray(currentData.other_staff) ? currentData.other_staff : [];
-                const isOS = osArray.some(n => n.trim() === myName);
-                
-                // ตรวจสอบว่าเป็นอาจารย์ในภาควิชา หรือไม่
-                const isStaffGroup = (masterData.mainStaffs || []).some(s => isSameID(s.id, currentUser.id));
-
-                // ปลดล็อคให้: 1.ทุกคนสำหรับ Protocol 2.ผู้วิจัยหลัก 3.อาจารย์ที่ปรึกษาหลัก 4.อาจารย์ร่วม 5.อาจารย์ทุกท่านในแผนก
-                const canViewFile = (step.key === 'protocol_draft') || isMR || isMS || isOS || isStaffGroup;
-
-                if (canViewFile) {
-                    html += `<div class="mt-2"><a href="${fileUrl}" target="_blank" class="badge bg-primary text-decoration-none p-2">🔍 ดูไฟล์ที่แนบไว้</a></div>`;
+                // โปรโตคอลดราฟให้ดูได้ทุกคน แต่ไฟล์อื่น เช็คตามสิทธิ์ที่เราคำนวณไว้ด้านบน (currentPerms.canViewAllFiles)
+                if (step.key === 'protocol_draft' || currentPerms.canViewAllFiles) {
+                    html += `<div class="mt-2"><a href="${fileUrl}" target="_blank" class="badge bg-primary text-decoration-none p-2 shadow-sm">🔍 ดูไฟล์ที่แนบไว้</a></div>`;
                 } else {
                     html += `<div class="mt-2"><span class="badge bg-secondary p-1" style="font-size:0.75rem;">🔒 สงวนสิทธิ์เฉพาะผู้วิจัยและอาจารย์</span></div>`;
                 }
