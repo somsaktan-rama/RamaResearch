@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.11</title>
+    <title>Research Rama Tracker v2.12</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -18,7 +18,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.31</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.32</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -104,7 +104,6 @@
     let isViewer = false; 
     let pendingFiles = {}; 
     
-    // ตั้งค่า hasFile ให้เป็นตัวหลัก แต่โค้ดด้านล่างจะฉลาดพอที่จะดึงทั้งพิมพ์เล็ก/ใหญ่มาเช็คให้
     const progressSteps = [
         { key: 'protocol_draft', label: 'Protocol Draft', role: 'MR', hasFile: 'draft_link' },
         { key: 'MS_protocol_draft', label: 'MS Protocol Draft', role: 'MS' },
@@ -237,7 +236,6 @@
         }
     }
 
-    // ฟังก์ชันช่วยดึงลิงก์ไฟล์ (รับมือกับปัญหาตัวพิมพ์เล็ก/ใหญ่ ในหัวตารางชีต)
     function getFileUrl(fileKey) {
         if (!fileKey) return null;
         return currentData[fileKey] || currentData[fileKey.toLowerCase()] || currentData[fileKey.charAt(0).toUpperCase() + fileKey.slice(1).toLowerCase()];
@@ -334,13 +332,20 @@
                 html += `<div class="mt-2"><input type="file" id="file_${step.key}" class="form-control form-control-sm" accept=".pdf" onchange="handleFileSelect('${step.key}', this.id)"></div>`;
             }
 
-            // ระบบซ่อนไฟล์และเช็คชื่อไฟล์แบบทนทาน (Anti-Typo)
+            // ==========================================
+            // อัปเดต: ระบบจัดการสิทธิ์การมองเห็นไฟล์ (เพิ่ม isOS)
+            // ==========================================
             const fileUrl = getFileUrl(step.hasFile);
             if (val && fileUrl) {
-                if (step.key === 'protocol_draft' || isMR || isMS) {
+                // เช็คว่าผู้ใช้นี้ มีชื่อในรายชื่ออาจารย์ร่วม (Other Staff) หรือไม่
+                const isOS = (currentData.other_staff && currentData.other_staff.includes(masterData.currentUserName));
+
+                // เงื่อนไข: ถ้าเป็น Protocol_draft (ทุกคนดูได้) หรือ เป็นผู้วิจัยหลัก(MR) หรือ เป็นอาจารย์หลัก(MS) หรือ เป็นอาจารย์ร่วม(OS)
+                if (step.key === 'protocol_draft' || isMR || isMS || isOS) {
                     html += `<div class="mt-2"><a href="${fileUrl}" target="_blank" class="badge bg-primary text-decoration-none p-2">🔍 ดูไฟล์ที่แนบไว้</a></div>`;
                 } else {
-                    html += `<div class="mt-2"><span class="badge bg-secondary p-1" style="font-size:0.75rem;">🔒 สงวนสิทธิ์เฉพาะผู้วิจัยหลัก (MR)</span></div>`;
+                    // ถ้าเป็นแพทย์ร่วม (Other Research) จะเข้าเงื่อนไขนี้ และถูกล็อคไม่ให้เห็นไฟล์
+                    html += `<div class="mt-2"><span class="badge bg-secondary p-1" style="font-size:0.75rem;">🔒 สงวนสิทธิ์เฉพาะผู้วิจัยหลักและอาจารย์</span></div>`;
                 }
             }
 
