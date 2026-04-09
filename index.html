@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.5</title>
+    <title>Research Rama Tracker v2.6</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .step-card { border-left: 4px solid #0d6efd; margin-bottom: 15px; transition: 0.3s; }
         .step-locked { opacity: 0.5; pointer-events: none; border-left: 4px solid #6c757d; background-color:#f1f3f5 !important; }
+        .condition-wait { border-left: 4px solid #ffc107 !important; background-color: #fffbeb !important; }
         .tag-item { display: inline-block; background: #e9ecef; border: 1px solid #dee2e6; border-radius: 15px; padding: 2px 10px; margin: 2px; font-size: 0.85rem; }
         .tag-remove { margin-left: 5px; cursor: pointer; color: #dc3545; font-weight: bold; }
     </style>
@@ -17,7 +18,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.24</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.26</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -33,7 +34,7 @@
     <div id="app-section" style="display:none;">
         <div class="alert alert-info py-2 mb-3 shadow-sm d-flex justify-content-between align-items-center">
             <span>👤 <span id="display-username" class="fw-bold text-primary"></span></span>
-            <span id="viewer-badge" class="badge bg-warning text-dark" style="display:none;">👁️ โหมดอ่านอย่างเดียว</span>
+            <span id="viewer-badge" class="badge bg-danger text-white shadow-sm" style="display:none;">👁️ โหมดดูข้อมูล (Read-Only)</span>
         </div>
 
         <div class="mb-3">
@@ -71,7 +72,7 @@
                 <div id="draft_upload_section" class="mb-3 mt-3 p-2 bg-light border rounded">
                     <label class="fw-bold">📄 Draft Protocol (PDF)</label>
                     <div id="input_draft_wrap">
-                        <input type="file" id="draft_link_file" class="form-control form-control-sm mt-1" accept=".pdf" onchange="renderProgress()">
+                        <input type="file" id="draft_link_file" class="form-control form-control-sm mt-1" accept=".pdf" onchange="checkConditions()">
                     </div>
                     <div id="existing_draft_link" class="mt-2" style="display:none;"></div>
                 </div>
@@ -96,7 +97,7 @@
     let currentUser = { id: '', ip: '' };
     let masterData = {};
     let currentData = { other_research: [], other_staff: [] }; 
-    let isViewer = false; // หัวใจสำคัญของระบบ Read-Only
+    let isViewer = false; 
     
     const progressSteps = [
         { key: 'protocol_draft', label: 'Protocol Draft', role: 'MR' },
@@ -152,6 +153,7 @@
             }).catch(e => Swal.fire('Error', 'เชื่อมต่อล้มเหลว', 'error'));
     }
 
+    // ฟังก์ชันจัดการ Modal รายชื่อ (ซ่อนถ้าเป็น Viewer)
     function openPicker(type) {
         if(isViewer) return; 
         const list = (type === 'doctor') ? masterData.doctors : masterData.otherStaffs;
@@ -212,7 +214,7 @@
             currentData.other_research = res.other_research ? res.other_research.split('\n').filter(n => n) : [];
             currentData.other_staff = res.other_staff ? res.other_staff.split('\n').filter(n => n) : [];
             
-            // เช็คว่าผู้ใช้ล็อกอิน เป็นเพียง Other Research / Other Staff หรือไม่
+            // เช็คสิทธิ์การเข้าถึง (Viewer)
             isViewer = (currentUser.id != currentData.ramaID_MR && currentUser.id != currentData.ramaID_MS);
             
             document.getElementById('Title').value = res.Title || '';
@@ -227,7 +229,7 @@
             } else { draftLinkContainer.style.display = 'none'; }
         }
 
-        // --- เปิด/ปิด ฟังก์ชันตามโหมด isViewer ---
+        // --- ควบคุม UI สำหรับโหมดผู้เยี่ยมชม (Viewer Mode) ---
         document.getElementById('viewer-badge').style.display = isViewer ? 'inline-block' : 'none';
         document.getElementById('save-btn').style.display = isViewer ? 'none' : 'block';
         document.getElementById('btn_add_doctor').style.display = isViewer ? 'none' : 'inline-block';
@@ -240,6 +242,7 @@
         renderProgress();
     }
 
+    // ฟังก์ชันสร้างหน้าจอความก้าวหน้า
     function renderProgress() {
         const container = document.getElementById('progress-container');
         container.innerHTML = '';
@@ -249,33 +252,31 @@
             const val = currentData[step.key];
             const isMyRole = (step.role === 'MR' && currentUser.id == currentData.ramaID_MR) || (step.role === 'MS' && currentUser.id == currentData.ramaID_MS);
             
-            // ล็อคปุ่มเสมอ หากอยู่ในโหมด View-Only หรือไม่ใช่คิวของตัวเอง
             let locked = (!prevOk || !isMyRole || isViewer);
+            let needsCondition = false;
 
-            if (step.key === 'protocol_draft' && !val) {
-                const fDraft = document.getElementById('draft_link_file');
-                if (!(fDraft && fDraft.files.length > 0) && !(currentData.draft_link && currentData.draft_link.trim() !== '')) locked = true; 
+            // มาร์คปุ่มว่าต้องการเช็คเงื่อนไขก่อน
+            if (!val && prevOk && isMyRole && !isViewer) {
+                if (step.key === 'protocol_draft' || step.key === 'EC_approve') {
+                    needsCondition = true;
+                    locked = true; // บังคับล็อคไว้ก่อน
+                }
             }
 
-            if (step.key === 'EC_approve' && !val) {
-                const fEC = document.getElementById(`file_${step.key}`);
-                const d1 = document.getElementById('date_EC_approve');
-                const d2 = document.getElementById('date_EC_expire');
-                if (!(fEC && fEC.files.length > 0) && !(currentData.EC_link && currentData.EC_link.trim() !== '') || !(d1 && d1.value) || !(d2 && d2.value)) locked = true; 
-            }
+            let cardStyle = locked && !needsCondition ? 'step-locked' : (needsCondition ? 'condition-wait' : 'bg-white');
 
             let html = `
-                <div class="card p-2 step-card mb-2 ${locked ? 'step-locked' : 'bg-white'} shadow-sm">
+                <div class="card p-2 step-card mb-2 ${cardStyle} shadow-sm">
                     <div class="d-flex justify-content-between align-items-center">
                         <small class="fw-bold text-dark">${step.label} <span class="badge bg-secondary">${step.role}</span></small>
-                        <button type="button" class="btn btn-sm ${val ? 'btn-success' : 'btn-outline-primary'}" 
+                        <button type="button" id="btn_${step.key}" data-needs-check="${needsCondition}" class="btn btn-sm ${val ? 'btn-success' : 'btn-outline-primary'}" 
                             onclick="stamp('${step.key}')" ${locked || val ? 'disabled' : ''}>
                             ${val || 'ลงเวลา'}
                         </button>
                     </div>`;
 
             if(step.hasFile && prevOk && isMyRole && !val && !isViewer) {
-                html += `<div class="mt-2"><input type="file" id="file_${step.key}" class="form-control form-control-sm" accept=".pdf" onchange="renderProgress()"></div>`;
+                html += `<div class="mt-2"><input type="file" id="file_${step.key}" class="form-control form-control-sm" accept=".pdf" onchange="checkConditions()"></div>`;
             }
 
             if (val && currentData[step.hasFile]) {
@@ -285,8 +286,9 @@
             if (step.needsDates && prevOk && isMyRole && !val && !isViewer) {
                 html += `
                 <div class="mt-2 row gx-2 bg-light p-2 rounded border">
-                    <div class="col-6"><label class="small text-muted fw-bold">วันที่อนุมัติ</label><input type="date" id="date_EC_approve" class="form-control form-control-sm" onchange="renderProgress()"></div>
-                    <div class="col-6"><label class="small text-muted fw-bold">วันหมดอายุ</label><input type="date" id="date_EC_expire" class="form-control form-control-sm" onchange="renderProgress()"></div>
+                    <div class="col-12 mb-1"><small class="text-danger fw-bold">* กรุณาแนบไฟล์ และระบุวันที่ให้ครบ เพื่อปลดล็อค</small></div>
+                    <div class="col-6"><label class="small text-muted fw-bold">วันที่อนุมัติ</label><input type="date" id="date_EC_approve" class="form-control form-control-sm" onchange="checkConditions()"></div>
+                    <div class="col-6"><label class="small text-muted fw-bold">วันหมดอายุ</label><input type="date" id="date_EC_expire" class="form-control form-control-sm" onchange="checkConditions()"></div>
                 </div>`;
             }
             if (step.needsDates && val) {
@@ -297,6 +299,35 @@
             container.innerHTML += html;
             if (!val) prevOk = false; 
         });
+
+        // หลังจากวาดเสร็จ ให้ลองตรวจเช็คเงื่อนไขปลดล็อคทันที
+        checkConditions();
+    }
+
+    // 🌟 พระเอกของงานนี้: ฟังก์ชันเช็คเงื่อนไขและปลดล็อคปุ่มแบบเรียลไทม์ 🌟
+    function checkConditions() {
+        if (isViewer) return;
+
+        // 1. เช็ค Protocol Draft
+        const btnProto = document.getElementById('btn_protocol_draft');
+        if (btnProto && btnProto.getAttribute('data-needs-check') === 'true') {
+            const fDraft = document.getElementById('draft_link_file');
+            const hasFile = (fDraft && fDraft.files.length > 0) || (currentData.draft_link && currentData.draft_link.trim() !== '');
+            btnProto.disabled = !hasFile;
+        }
+
+        // 2. เช็ค EC Approve
+        const btnEC = document.getElementById('btn_EC_approve');
+        if (btnEC && btnEC.getAttribute('data-needs-check') === 'true') {
+            const fEC = document.getElementById('file_EC_approve');
+            const d1 = document.getElementById('date_EC_approve');
+            const d2 = document.getElementById('date_EC_expire');
+
+            const hasFile = (fEC && fEC.files.length > 0) || (currentData.EC_link && currentData.EC_link.trim() !== '');
+            const hasDates = (d1 && d1.value) && (d2 && d2.value);
+
+            btnEC.disabled = !(hasFile && hasDates);
+        }
     }
 
     function stamp(key) {
