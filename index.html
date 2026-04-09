@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.12</title>
+    <title>Research Rama Tracker v2.13</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -18,7 +18,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.32</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.33</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -26,7 +26,7 @@
         </div>
         <div class="mb-3">
             <label class="form-label">Rama ID</label>
-            <input type="tel" id="login-ramaid" class="form-control" placeholder="ระบุรหัสบุคคล" inputmode="numeric">
+            <input type="tel" id="login-ramaid" class="form-control" placeholder="ระบุ Rama ID" inputmode="numeric">
         </div>
         <button id="login-btn" class="btn btn-primary w-100" onclick="login()" disabled>เข้าสู่ระบบ</button>
     </div>
@@ -36,7 +36,8 @@
             <span>👤 <span id="display-username" class="fw-bold text-primary"></span></span>
             <div>
                 <span id="viewer-badge" class="badge bg-danger text-white shadow-sm me-1" style="display:none;">👁️ ดูข้อมูล</span>
-                <button class="btn btn-sm btn-outline-danger bg-white" onclick="location.reload()">🚪 ออกจากระบบ</button>
+                <button class="btn btn-sm btn-outline-primary bg-white me-1" onclick="fetchInitialData()">🔄 รีเฟรช</button>
+                <button class="btn btn-sm btn-outline-danger bg-white" onclick="location.reload()">🚪 ออก</button>
             </div>
         </div>
 
@@ -88,7 +89,7 @@
             </div>
 
             <div class="d-flex gap-2">
-                <button type="button" id="save-btn" class="btn btn-success w-100 py-2 fw-bold shadow" onclick="saveData()">💾 บันทึกข้อมูล</button>
+                <button type="button" id="save-btn" class="btn btn-success w-100 py-2 fw-bold shadow" onclick="saveData()">💾 บันทึก / อัปเดตข้อมูล</button>
                 <button type="button" class="btn btn-secondary w-100 py-2" onclick="closeForm()">ปิดฟอร์ม</button>
             </div>
         </form>
@@ -96,6 +97,7 @@
 </div>
 
 <script>
+    // 🚨 ใส่ URL ของ Google Apps Script ของคุณตรงนี้
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbyPuWxqyYQ7ulh0Dyb-fgc29FbtYfoSHtu9MgN-Rih9PKKshHDuiDncC6qZJe6OoGU/exec';
     
     let currentUser = { id: '', ip: '' };
@@ -140,7 +142,7 @@
     }
 
     function fetchInitialData() {
-        Swal.fire({ title: 'กำลังโหลดข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: 'กำลังโหลด/อัปเดตข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         fetch(`${GAS_URL}?action=getInitialData&ramaID=${currentUser.id}`)
             .then(res => res.json())
             .then(data => {
@@ -150,6 +152,9 @@
                 document.getElementById('display-username').innerText = data.currentUserName;
                 masterData = data;
                 
+                // เก็บค่าเก่าของ selector ไว้ เพื่อให้เวลาอัปเดต หน้าจอไม่เด้งกลับไปหน้าแรก
+                const oldSelection = document.getElementById('research-selector').value;
+
                 let html = '<option value="">-- เลือกงานวิจัย --</option>';
                 data.researches.forEach(r => html += `<option value="${r.rowIndex}">${r.Title || 'ไม่ระบุชื่อ'}</option>`);
                 html += `<option value="new" class="text-primary fw-bold">+ สร้างงานวิจัยใหม่</option>`;
@@ -161,6 +166,13 @@
 
                 document.getElementById('login-section').style.display = 'none';
                 document.getElementById('app-section').style.display = 'block';
+
+                // โหลดหน้าจอเดิมกลับมาถ้าเคยเลือกไว้
+                if(oldSelection) {
+                    document.getElementById('research-selector').value = oldSelection;
+                    loadResearch(oldSelection);
+                }
+
                 Swal.close();
             }).catch(e => Swal.fire('Error', 'เชื่อมต่อล้มเหลว', 'error'));
     }
@@ -333,19 +345,19 @@
             }
 
             // ==========================================
-            // อัปเดต: ระบบจัดการสิทธิ์การมองเห็นไฟล์ (เพิ่ม isOS)
+            // อัปเดตล่าสุด: จัดการสิทธิ์การดูไฟล์ของ Staff
             // ==========================================
             const fileUrl = getFileUrl(step.hasFile);
             if (val && fileUrl) {
-                // เช็คว่าผู้ใช้นี้ มีชื่อในรายชื่ออาจารย์ร่วม (Other Staff) หรือไม่
-                const isOS = (currentData.other_staff && currentData.other_staff.includes(masterData.currentUserName));
+                // เช็คว่าผู้ใช้ล็อกอิน เป็นกลุ่ม "อาจารย์" (Staff) หรือไม่?
+                // โดยค้นหาว่ามี ID ตรงกับรายชื่อใน masterData.otherStaffs หรือไม่
+                const isStaffUser = masterData.otherStaffs.some(s => s.id == currentUser.id);
 
-                // เงื่อนไข: ถ้าเป็น Protocol_draft (ทุกคนดูได้) หรือ เป็นผู้วิจัยหลัก(MR) หรือ เป็นอาจารย์หลัก(MS) หรือ เป็นอาจารย์ร่วม(OS)
-                if (step.key === 'protocol_draft' || isMR || isMS || isOS) {
+                // ปลดล็อคให้: 1.ไฟล์เปิดสาธารณะ(Protocol Draft) 2.ผู้วิจัยหลัก 3.อาจารย์ที่ปรึกษาหลัก 4.อาจารย์/Staff ทุกท่าน
+                if (step.key === 'protocol_draft' || isMR || isMS || isStaffUser) {
                     html += `<div class="mt-2"><a href="${fileUrl}" target="_blank" class="badge bg-primary text-decoration-none p-2">🔍 ดูไฟล์ที่แนบไว้</a></div>`;
                 } else {
-                    // ถ้าเป็นแพทย์ร่วม (Other Research) จะเข้าเงื่อนไขนี้ และถูกล็อคไม่ให้เห็นไฟล์
-                    html += `<div class="mt-2"><span class="badge bg-secondary p-1" style="font-size:0.75rem;">🔒 สงวนสิทธิ์เฉพาะผู้วิจัยหลักและอาจารย์</span></div>`;
+                    html += `<div class="mt-2"><span class="badge bg-secondary p-1" style="font-size:0.75rem;">🔒 สงวนสิทธิ์เฉพาะผู้วิจัยและอาจารย์</span></div>`;
                 }
             }
 
@@ -447,7 +459,7 @@
             
             if (res.status === 'success') {
                 Swal.fire('สำเร็จ', res.message, 'success').then(() => {
-                    closeForm();
+                    // เปลี่ยนจากการปิดฟอร์ม เป็นการรีเฟรชข้อมูลล่าสุดแทน
                     fetchInitialData(); 
                 });
             }
