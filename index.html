@@ -18,7 +18,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.35</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.35 Debug</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -296,6 +296,30 @@
                 draftLinkContainer.style.display = 'block';
             } else { draftLinkContainer.style.display = 'none'; }
         }
+
+			// ==========================================
+            // 🚨 โค้ดสำหรับตรวจสอบ (DEBUG)
+            // ==========================================
+            console.log("=== 🔍 เริ่มการตรวจสอบสิทธิ์ ===");
+            console.log("1. รหัสผู้ใช้ที่ล็อกอิน (currentUser.id):", `"${currentUser.id}"`);
+            console.log("2. รหัสอาจารย์ที่ปรึกษา (currentData.ramaID_MS):", `"${currentData.ramaID_MS}"`);
+            
+            // เช็คการเทียบ isMS
+            const checkIsMS = isSameID(currentUser.id, currentData.ramaID_MS);
+            console.log("3. ผลการเช็ค isMS (ตรงกันไหม?):", checkIsMS);
+
+            // เช็ครายชื่อ Staff ทั้งหมด
+            console.log("4. รายชื่ออาจารย์ทั้งหมดในระบบ (masterData.otherStaffs):", masterData.otherStaffs);
+            
+            // ลองค้นหาตัวเราเองในกลุ่ม Staff
+            const foundInStaff = masterData.otherStaffs.find(s => isSameID(s.id, currentUser.id));
+            if(foundInStaff) {
+                console.log(`5. ผลการเช็ค isStaffUser: ✅ พบข้อมูล (ชื่อ: ${foundInStaff.name}, ID ในระบบ: "${foundInStaff.id}")`);
+            } else {
+                console.log("5. ผลการเช็ค isStaffUser: ❌ ไม่พบรหัสนี้ในรายชื่อ Staff");
+            }
+            console.log("===============================");
+            // ==========================================
 
         document.getElementById('viewer-badge').style.display = isViewer ? 'inline-block' : 'none';
         document.getElementById('save-btn').style.display = isViewer ? 'none' : 'block';
