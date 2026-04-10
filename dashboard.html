@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { background-color: #f1f5f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .dashboard-card { border: none; border-radius: 12px; transition: transform 0.2s, box-shadow 0.2s; }
+        .dashboard-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.08) !important; }
+        
+        .role-title { font-size: 0.8rem; color: #6c757d; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; }
+        .name-list { font-size: 0.9rem; line-height: 1.4; color: #495057; }
+        
+        /* สไตล์สำหรับกล่องความคืบหน้า */
+        .step-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 15px; }
+        .step-box { 
+            padding: 5px 10px; 
+            border-radius: 6px; 
+            font-size: 0.75rem; 
+            font-weight: 600;
+            background-color: #e9ecef; 
+            color: #adb5bd; 
+            border: 1px solid #dee2e6;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        /* สไตล์เมื่อขั้นตอนนั้นทำเสร็จแล้ว */
+        .step-box.done { 
+            background-color: #d1e7dd; 
+            color: #0f5132; 
+            border-color: #badbcc; 
+        }
+        .step-box.done::before {
+            content: '✔️';
+        }
+        .step-box.pending::before {
+            content: '⏳';
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="text-primary fw-bold mb-0">📊 ภาพรวมงานวิจัย (Dashboard)</h3>
+        <button class="btn btn-outline-primary shadow-sm" onclick="loadDashboard()">🔄 รีเฟรชข้อมูล</button>
+    </div>
+
+    <div id="dashboard-container" class="row g-4">
+        </div>
+</div>
+
+<script>
+    // 🚨 ใส่ URL ของ Google Apps Script ของคุณตรงนี้
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbyPuWxqyYQ7ulh0Dyb-fgc29FbtYfoSHtu9MgN-Rih9PKKshHDuiDncC6qZJe6OoGU/exec';
+
+    // ลิสต์ขั้นตอนที่ต้องการให้แสดงเป็น Block
+    const trackingSteps = [
+        { key: 'protocol_draft', label: 'Protocol Draft' },
+        { key: 'EC_subm', label: 'EC Subm' },
+        { key: 'EC_correct', label: 'EC Correct' },
+        { key: 'EC_approve', label: 'EC Approve' },
+        { key: 'data_collect', label: 'Data Collect' },
+        { key: 'data_analysis', label: 'Data Analysis' },
+        { key: 'manu_draft', label: 'Manu Draft' },
+        { key: 'manu_submis', label: 'Manu Submis' },
+        { key: 'manu_revise', label: 'Manu Revise' },
+        { key: 'manu_accept', label: 'Manu Accept' }
+    ];
+
+    window.onload = () => { loadDashboard(); };
+
+    function getSafeData(obj, key) {
+        if (!key) return "";
+        if (obj[key] !== undefined && obj[key] !== "") return obj[key];
+        const foundKey = Object.keys(obj).find(k => k.toLowerCase() === key.toLowerCase());
+        return foundKey ? obj[foundKey] : "";
+    }
+
+    function formatList(rawString) {
+        if (!rawString) return '<span class="text-muted small">-</span>';
+        // ตัดบรรทัดว่างออก และแปลง \n เป็นแท็ก <br>
+        return rawString.toString().split('\n').filter(n => n.trim() !== '').join('<br>');
+    }
+
+    function loadDashboard() {
+        const container = document.getElementById('dashboard-container');
+        container.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">กำลังโหลดข้อมูล...</p></div>';
+
+        fetch(`${GAS_URL}?action=getAllResearch`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.error) return Swal.fire('Error', data.error, 'error');
+                
+                container.innerHTML = '';
+                
+                if (data.researches.length === 0) {
+                    container.innerHTML = '<div class="col-12 text-center text-muted py-5">ยังไม่มีข้อมูลงานวิจัยในระบบ</div>';
+                    return;
+                }
+
+                data.researches.forEach(res => {
+                    // ดึงข้อมูลรายชื่อ
+                    const title = getSafeData(res, 'Title') || 'ไม่ได้ระบุชื่อเรื่อง';
+                    const mrName = getSafeData(res, 'main_research') || getSafeData(res, 'ramaID_MR') || '-';
+                    const msName = getSafeData(res, 'main_staff') || getSafeData(res, 'ramaID_MS') || '-';
+                    const orList = formatList(getSafeData(res, 'other_research'));
+                    const osList = formatList(getSafeData(res, 'other_staff'));
+
+                    // สร้างกล่องความคืบหน้า (Progress Blocks)
+                    let stepsHtml = '';
+                    trackingSteps.forEach(step => {
+                        const isDone = getSafeData(res, step.key) !== "";
+                        const statusClass = isDone ? 'done' : 'pending';
+                        stepsHtml += `<div class="step-box ${statusClass}">${step.label}</div>`;
+                    });
+
+                    // สร้างการ์ด HTML
+                    const cardHtml = `
+                    <div class="col-md-6 col-lg-12">
+                        <div class="card dashboard-card shadow-sm h-100">
+                            <div class="card-body">
+                                <h5 class="card-title text-dark fw-bold border-bottom pb-2 mb-3">📄 ${title}</h5>
+                                
+                                <div class="row gx-4 gy-3">
+                                    <div class="col-sm-6">
+                                        <div class="p-3 bg-light rounded border h-100">
+                                            <div class="mb-2">
+                                                <div class="role-title">ผู้วิจัยหลัก (Main Research)</div>
+                                                <span class="badge bg-primary text-white" style="font-size:0.9rem;">${mrName}</span>
+                                            </div>
+                                            <div>
+                                                <div class="role-title">แพทย์ร่วม (Other Research)</div>
+                                                <div class="name-list mt-1">${orList}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-sm-6">
+                                        <div class="p-3 bg-light rounded border h-100">
+                                            <div class="mb-2">
+                                                <div class="role-title">อ.ที่ปรึกษาหลัก (Main Staff)</div>
+                                                <span class="badge bg-success text-white" style="font-size:0.9rem;">${msName}</span>
+                                            </div>
+                                            <div>
+                                                <div class="role-title">อาจารย์ร่วม (Other Staff)</div>
+                                                <div class="name-list mt-1">${osList}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="step-container mt-3 pt-3 border-top">
+                                    ${stepsHtml}
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+                    
+                    container.innerHTML += cardHtml;
+                });
+            }).catch(e => {
+                container.innerHTML = `<div class="col-12 text-center text-danger py-5">เกิดข้อผิดพลาดในการโหลดข้อมูล: ${e.message}</div>`;
+            });
+    }
+</script>
+</body>
+</html>
