@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SkinRama Research</title>
+    <title>Research Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -28,26 +28,24 @@
             align-items: center;
             gap: 4px;
         }
-        /* สไตล์เมื่อขั้นตอนนั้นทำเสร็จแล้ว */
         .step-box.done { 
             background-color: #d1e7dd; 
             color: #0f5132; 
             border-color: #badbcc; 
         }
-        .step-box.done::before {
-            content: '✔️';
-        }
-        .step-box.pending::before {
-            content: '⏳';
-            opacity: 0.5;
-        }
+        .step-box.done::before { content: '✔️'; }
+        .step-box.pending::before { content: '⏳'; opacity: 0.5; }
+
+        /* เอฟเฟกต์กระพริบเตือนกรณีหมดอายุแล้ว */
+        .blink-alert { animation: blinker 1.5s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0.4; } }
     </style>
 </head>
 <body>
 
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="text-primary fw-bold mb-0">📊 ภาพรวมงานวิจัยหน่วยโรคผิวหนัง 1.00</h3>
+        <h3 class="text-primary fw-bold mb-0">📊 ภาพรวมงานวิจัยหน่วยโรคผิวหนัง 1.01</h3>
         <button class="btn btn-outline-primary shadow-sm" onclick="loadDashboard()">🔄 รีเฟรชข้อมูล</button>
     </div>
 
@@ -58,8 +56,7 @@
 <script>
     // 🚨 ใส่ URL ของ Google Apps Script ของคุณตรงนี้
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbyPuWxqyYQ7ulh0Dyb-fgc29FbtYfoSHtu9MgN-Rih9PKKshHDuiDncC6qZJe6OoGU/exec';
-
-    // ลิสต์ขั้นตอนที่ต้องการให้แสดงเป็น Block
+   
     const trackingSteps = [
         { key: 'protocol_draft', label: 'Protocol Draft' },
         { key: 'EC_subm', label: 'EC Subm' },
@@ -84,8 +81,34 @@
 
     function formatList(rawString) {
         if (!rawString) return '<span class="text-muted small">-</span>';
-        // ตัดบรรทัดว่างออก และแปลง \n เป็นแท็ก <br>
         return rawString.toString().split('\n').filter(n => n.trim() !== '').join('<br>');
+    }
+
+    // 🌟 ระบบคำนวณและสร้าง Tag เตือนวันหมดอายุ EC
+    function generateECTag(expireDateStr) {
+        if (!expireDateStr || expireDateStr.trim() === '') return '';
+
+        const expireDate = new Date(expireDateStr);
+        if (isNaN(expireDate.getTime())) return ''; // ดักจับกรณีวันที่ผิดฟอร์แมต
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // ตัดเศษเวลาทิ้ง เพื่อคำนวณวันให้เป๊ะ
+        expireDate.setHours(0, 0, 0, 0);
+
+        const diffTime = expireDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // แปลงมิลลิวินาทีเป็น "จำนวนวัน"
+
+        // แจ้งเตือนตามเงื่อนไขเวลา
+        if (diffDays < 0) {
+            return `<span class="badge bg-danger ms-2 blink-alert shadow-sm">⚠️ EC หมดอายุแล้ว! (${Math.abs(diffDays)} วัน)</span>`;
+        } else if (diffDays <= 30) { // น้อยกว่า 1 เดือน (30 วัน)
+            return `<span class="badge bg-danger ms-2 shadow-sm">⚠️ หมดอายุใน ${diffDays} วัน</span>`;
+        } else if (diffDays <= 90) { // 1-3 เดือน (90 วัน)
+            return `<span class="badge bg-warning text-dark ms-2 shadow-sm">⏳ ใกล้หมดอายุ (${diffDays} วัน)</span>`;
+        }
+        
+        // ถ้ามากกว่า 3 เดือน ให้แสดงเป็นสีเขียวปกติ
+        return `<span class="badge bg-success ms-2 shadow-sm">✅ EC ปกติ</span>`;
     }
 
     function loadDashboard() {
@@ -99,18 +122,25 @@
                 
                 container.innerHTML = '';
                 
-                if (data.researches.length === 0) {
-                    container.innerHTML = '<div class="col-12 text-center text-muted py-5">ยังไม่มีข้อมูลงานวิจัยในระบบ</div>';
-                    return;
-                }
+                let activeResearchCount = 0;
 
                 data.researches.forEach(res => {
+                    // 🌟 ฟีเจอร์ที่ 1: กรองงานวิจัยที่อาจารย์ Final Accept ไปแล้ว (ไม่แสดงบน Dashboard)
+                    const isFinalAccept = getSafeData(res, 'MS_manu_accept');
+                    if (isFinalAccept !== "") return; // ข้ามลูปการวาดการ์ดใบนี้ไปเลย
+
+                    activeResearchCount++;
+
                     // ดึงข้อมูลรายชื่อ
                     const title = getSafeData(res, 'Title') || 'ไม่ได้ระบุชื่อเรื่อง';
                     const mrName = getSafeData(res, 'main_research') || getSafeData(res, 'ramaID_MR') || '-';
                     const msName = getSafeData(res, 'main_staff') || getSafeData(res, 'ramaID_MS') || '-';
                     const orList = formatList(getSafeData(res, 'other_research'));
                     const osList = formatList(getSafeData(res, 'other_staff'));
+
+                    // 🌟 ฟีเจอร์ที่ 2: ดึงวันที่หมดอายุมาคำนวณ Tag
+                    const ecExpireDate = getSafeData(res, 'EC_expire_date');
+                    const ecAlertTag = generateECTag(ecExpireDate);
 
                     // สร้างกล่องความคืบหน้า (Progress Blocks)
                     let stepsHtml = '';
@@ -125,7 +155,7 @@
                     <div class="col-md-6 col-lg-12">
                         <div class="card dashboard-card shadow-sm h-100">
                             <div class="card-body">
-                                <h5 class="card-title text-dark fw-bold border-bottom pb-2 mb-3">📄 ${title}</h5>
+                                <h5 class="card-title text-dark fw-bold border-bottom pb-2 mb-3">📄 ${title} ${ecAlertTag}</h5>
                                 
                                 <div class="row gx-4 gy-3">
                                     <div class="col-sm-6">
@@ -164,6 +194,12 @@
                     
                     container.innerHTML += cardHtml;
                 });
+
+                // กรณีที่ไม่มีงานค้างอยู่เลย (กดปิดจ๊อบไปหมดแล้ว)
+                if (activeResearchCount === 0) {
+                    container.innerHTML = '<div class="col-12 text-center text-success py-5"><h5>🎉 ไม่มีงานวิจัยที่อยู่ระหว่างดำเนินการ</h5><p class="text-muted">งานวิจัยทั้งหมดได้รับการอนุมัติเรียบร้อยแล้ว</p></div>';
+                }
+
             }).catch(e => {
                 container.innerHTML = `<div class="col-12 text-center text-danger py-5">เกิดข้อผิดพลาดในการโหลดข้อมูล: ${e.message}</div>`;
             });
