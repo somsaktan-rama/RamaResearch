@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.21 (Safe Save)</title>
+    <title>Research Rama Tracker v2.22 (Edit Mode Unlocked)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -19,7 +19,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 1.41</h3>
+    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.22</h3>
 
     <div id="login-section" class="card shadow-sm p-4">
         <div class="text-center mb-3">
@@ -79,6 +79,7 @@
                     <label class="fw-bold">📄 Draft Protocol (PDF)</label>
                     <div id="input_draft_wrap">
                         <input type="file" id="file_protocol_draft" class="form-control form-control-sm mt-1" accept=".pdf" onchange="handleFileSelect('protocol_draft', this.id)">
+                        <small class="text-muted" id="draft_help_text">แนบไฟล์เพื่ออัปโหลด</small>
                     </div>
                     <div id="existing_draft_link" class="mt-2" style="display:none;"></div>
                 </div>
@@ -197,9 +198,7 @@
                         cancelButtonText: 'ยกเลิก',
                         confirmButtonColor: '#06C755'
                     }).then((result) => {
-                        if (result.isConfirmed) {
-                            liff.login(); 
-                        }
+                        if (result.isConfirmed) liff.login(); 
                     });
                     return; 
                 }
@@ -321,6 +320,7 @@
             document.getElementById('Title').readOnly = false;
             document.getElementById('ramaID_MS').disabled = false;
             document.getElementById('existing_draft_link').style.display = 'none';
+            document.getElementById('draft_help_text').innerText = "แนบไฟล์เพื่ออัปโหลด";
         } else {
             const res = masterData.researches.find(r => r.rowIndex == val);
             currentData = { ...res };
@@ -345,9 +345,13 @@
             const draftLinkContainer = document.getElementById('existing_draft_link');
             const safeDraftLink = getSafeData(res, 'draft_link');
             if(safeDraftLink && safeDraftLink.trim() !== '') {
+                document.getElementById('draft_help_text').innerText = "แนบไฟล์ใหม่หากต้องการเขียนทับของเดิม";
                 draftLinkContainer.innerHTML = `<a href="${safeDraftLink}" target="_blank" class="badge bg-primary text-decoration-none p-2 mt-2" style="pointer-events: auto;">🔍 ดูไฟล์ Draft ที่แนบไว้แล้ว</a>`;
                 draftLinkContainer.style.display = 'block';
-            } else { draftLinkContainer.style.display = 'none'; }
+            } else { 
+                document.getElementById('draft_help_text').innerText = "แนบไฟล์เพื่ออัปโหลด";
+                draftLinkContainer.style.display = 'none'; 
+            }
         }
 
         const myName = (masterData.currentUserName || "").trim();
@@ -401,11 +405,15 @@
             let isActionLocked = (!prevOk || !isMyRole || isViewer);
             let needsCondition = false;
 
-            if (!val && prevOk && isMyRole && !isViewer) {
+            if (prevOk && isMyRole && !isViewer) {
                 if (step.hasFile || step.needsDates || step.needsText) {
                     needsCondition = true;
-                    isActionLocked = true; 
                 }
+            }
+
+            // 🌟 ปลดล็อคปุ่มให้กดอัปเดตได้ แม้จะเคยลงเวลาไปแล้ว (Edit Mode)
+            if (val && isMyRole && !isViewer) {
+                isActionLocked = false; 
             }
 
             let cardStyle = 'bg-white';
@@ -414,20 +422,24 @@
                 else if (isActionLocked) cardStyle = 'step-locked';
             }
 
-            const displayBtnText = (step.needsText && val) ? '✔️ บันทึกข้อมูลแล้ว' : (val || 'ลงเวลา');
+            // 🌟 เปลี่ยนข้อความและสีปุ่มเมื่ออยู่ในโหมดอัปเดต
+            const displayBtnText = val ? '🔄 อัปเดตข้อมูล' : 'ลงเวลา';
+            const btnClass = val ? 'btn-outline-success fw-bold' : 'btn-outline-primary';
 
             let html = `
                 <div class="card p-2 step-card mb-2 ${cardStyle} shadow-sm">
                     <div class="d-flex justify-content-between align-items-center">
                         <small class="fw-bold text-dark">${step.label} <span class="badge bg-secondary">${step.role}</span></small>
-                        <button type="button" id="btn_${step.key}" data-needs-check="${needsCondition}" class="btn btn-sm ${val ? 'btn-success' : 'btn-outline-primary'}" 
-                            onclick="stamp('${step.key}')" ${isActionLocked || val ? 'disabled' : ''}>
+                        <button type="button" id="btn_${step.key}" data-needs-check="${needsCondition}" class="btn btn-sm ${btnClass}" 
+                            onclick="stamp('${step.key}')" ${isActionLocked ? 'disabled' : ''}>
                             ${displayBtnText}
                         </button>
                     </div>`;
 
-            if(step.hasFile && step.key !== 'protocol_draft' && prevOk && isMyRole && !val && !isViewer) {
-                html += `<div class="mt-2"><input type="file" id="file_${step.key}" class="form-control form-control-sm" accept=".pdf" onchange="handleFileSelect('${step.key}', this.id)"></div>`;
+            // 🌟 1. ช่องแนบไฟล์ (โชว์เสมอเพื่อให้อัปโหลดทับได้)
+            if(step.hasFile && step.key !== 'protocol_draft' && prevOk && isMyRole && !isViewer) {
+                const fileLabel = val ? 'แนบไฟล์ใหม่ (หากต้องการเขียนทับของเดิม)' : 'แนบไฟล์ PDF';
+                html += `<div class="mt-2"><label class="small text-muted fw-bold">${fileLabel}</label><input type="file" id="file_${step.key}" class="form-control form-control-sm" accept=".pdf" onchange="handleFileSelect('${step.key}', this.id)"></div>`;
             }
 
             const fileUrl = getSafeData(currentData, step.hasFile);
@@ -439,25 +451,30 @@
                 }
             }
 
-            if (step.needsDates && prevOk && isMyRole && !val && !isViewer) {
-                html += `
-                <div class="mt-2 row gx-2 bg-light p-2 rounded border">
-                    <div class="col-12 mb-1"><small class="text-danger fw-bold">* แนบไฟล์ และระบุวันที่ให้ครบ เพื่อปลดล็อค</small></div>
-                    <div class="col-6"><label class="small text-muted fw-bold">วันที่อนุมัติ</label><input type="date" id="date_${step.key}" class="form-control form-control-sm" onchange="checkConditions()"></div>
-                    <div class="col-6"><label class="small text-muted fw-bold">วันหมดอายุ</label><input type="date" id="expire_${step.key}" class="form-control form-control-sm" onchange="checkConditions()"></div>
-                </div>`;
-            }
-            if (step.needsDates && val) {
-                const appDate = getSafeData(currentData, 'EC_approve_date') || '-';
-                const expDate = getSafeData(currentData, 'EC_expire_date') || '-';
-                html += `<div class="mt-2 small text-success fw-bold">📅 อนุมัติ: ${appDate} | หมดอายุ: ${expDate}</div>`;
+            // 🌟 2. ช่องวันที่ (โชว์ช่องกรอกเสมอเพื่อแก้ได้)
+            if (step.needsDates && prevOk) {
+                const appDate = getSafeData(currentData, 'EC_approve_date') || '';
+                const expDate = getSafeData(currentData, 'EC_expire_date') || '';
+
+                if (isMyRole && !isViewer) {
+                    html += `
+                    <div class="mt-2 row gx-2 bg-light p-2 rounded border">
+                        <div class="col-12 mb-1"><small class="text-danger fw-bold">* ${val ? 'สามารถแก้ไขวันที่ได้' : 'แนบไฟล์ และระบุวันที่ให้ครบ เพื่อปลดล็อค'}</small></div>
+                        <div class="col-6"><label class="small text-muted fw-bold">วันที่อนุมัติ</label><input type="date" id="date_${step.key}" class="form-control form-control-sm" value="${appDate}" onchange="checkConditions()"></div>
+                        <div class="col-6"><label class="small text-muted fw-bold">วันหมดอายุ</label><input type="date" id="expire_${step.key}" class="form-control form-control-sm" value="${expDate}" onchange="checkConditions()"></div>
+                    </div>`;
+                } else if (val) {
+                    html += `<div class="mt-2 small text-success fw-bold">📅 อนุมัติ: ${appDate || '-'} | หมดอายุ: ${expDate || '-'}</div>`;
+                }
             }
 
-            if (step.needsText && prevOk && isMyRole && !val && !isViewer) {
-                html += `<div class="mt-2"><input type="text" id="text_${step.key}" class="form-control form-control-sm" placeholder="ระบุรายละเอียด Presentation..." oninput="checkConditions()"></div>`;
-            }
-            if (step.needsText && val) {
-                html += `<div class="mt-2 small text-success fw-bold">📝 รายละเอียด: <span class="text-dark">${val}</span></div>`;
+            // 🌟 3. ช่องกรอกข้อความ Presentation (โชว์เสมอเพื่อแก้ได้)
+            if (step.needsText && prevOk) {
+                if (isMyRole && !isViewer) {
+                    html += `<div class="mt-2"><label class="small text-muted fw-bold">รายละเอียด</label><input type="text" id="text_${step.key}" class="form-control form-control-sm" placeholder="ระบุรายละเอียด Presentation..." value="${val || ''}" oninput="checkConditions()"></div>`;
+                } else if (val) {
+                    html += `<div class="mt-2 small text-success fw-bold">📝 รายละเอียด: <span class="text-dark">${val}</span></div>`;
+                }
             }
 
             html += `</div>`;
@@ -511,21 +528,38 @@
         if(step.needsText) {
             currentData[key] = document.getElementById(`text_${key}`).value;
         } else {
+            // ถ้าเป็นการแก้ไขไฟล์หรือวันที่เฉยๆ ก็จะอัปเดต Timestamp ปัจจุบันให้ด้วย
             currentData[key] = new Date().toLocaleString('th-TH');
         }
         
-        renderProgress();
+        renderProgress(); // โหลดหน้าจอใหม่ให้เห็นผลทันที
     }
 
-    // 🌟 อัปเกรดฟังก์ชันบันทึกข้อมูล (เพิ่ม Try-Catch แบบลึก)
     async function saveData() {
         if(isViewer) return; 
         try {
-            // เช็คว่ากรอกชื่อเรื่องหรือยัง
             const titleInput = document.getElementById('Title').value.trim();
             if (!titleInput) {
                 return Swal.fire('แจ้งเตือน', 'กรุณาระบุ Title (ชื่อเรื่อง) ก่อนบันทึกครับ', 'warning');
             }
+
+            // 🌟 ระบบกวาดเก็บข้อมูลอัปเดต ป้องกันกรณี User พิมพ์แล้วลืมกดปุ่มอัปเดตย่อย 🌟
+            progressSteps.forEach(step => {
+                if (step.needsDates && getSafeData(currentData, step.key)) {
+                    const d1 = document.getElementById(`date_${step.key}`);
+                    const d2 = document.getElementById(`expire_${step.key}`);
+                    if (d1 && d2) {
+                        currentData['EC_approve_date'] = d1.value;
+                        currentData['EC_expire_date'] = d2.value;
+                    }
+                }
+                if (step.needsText && getSafeData(currentData, step.key)) {
+                    const t = document.getElementById(`text_${step.key}`);
+                    if (t) {
+                        currentData[step.key] = t.value;
+                    }
+                }
+            });
 
             Swal.fire({ 
                 title: 'กำลังบันทึกข้อมูล...', 
@@ -547,7 +581,6 @@
             payload.manuDraftBase64 = pendingFiles['manu_draft'] || null;
             payload.manuLinkBase64 = pendingFiles['manu_accept'] || null;
 
-            // บังคับเปลี่ยน Content-Type เป็น text/plain เพื่อป้องกัน CORS
             const resp = await fetch(GAS_URL, { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -559,7 +592,7 @@
             const res = await resp.json();
             
             if (res.status === 'success') {
-                Swal.fire('สำเร็จ', res.message, 'success').then(() => {
+                Swal.fire('สำเร็จ', 'อัปเดตข้อมูลและบันทึกไฟล์เรียบร้อยแล้ว', 'success').then(() => {
                     fetchInitialData(); 
                 });
             } else {
