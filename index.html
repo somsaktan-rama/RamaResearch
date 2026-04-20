@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.24 (Timestamp Button)</title>
+    <title>Research Rama Tracker v2.25 (Integrated Dashboard)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -14,87 +14,120 @@
         .condition-wait { border-left: 4px solid #ffc107 !important; background-color: #fffbeb !important; }
         .tag-item { display: inline-block; background: #e9ecef; border: 1px solid #dee2e6; border-radius: 15px; padding: 2px 10px; margin: 2px; font-size: 0.85rem; }
         .tag-remove { margin-left: 5px; cursor: pointer; color: #dc3545; font-weight: bold; }
+        
+        /* สไตล์เสริมสำหรับ Dashboard */
+        .dashboard-card { border: none; border-radius: 12px; transition: transform 0.2s, box-shadow 0.2s; }
+        .dashboard-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.08) !important; }
+        .role-title { font-size: 0.8rem; color: #6c757d; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; }
+        .name-list { font-size: 0.9rem; line-height: 1.4; color: #495057; }
+        .step-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 15px; }
+        .step-box { padding: 5px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; background-color: #e9ecef; color: #adb5bd; border: 1px solid #dee2e6; display: flex; align-items: center; gap: 4px; }
+        .step-box.done { background-color: #d1e7dd; color: #0f5132; border-color: #badbcc; }
+        .step-box.done::before { content: '✔️'; }
+        .step-box.pending::before { content: '⏳'; opacity: 0.5; }
+        .blink-alert { animation: blinker 1.5s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0.4; } }
     </style>
 </head>
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary">ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.24</h3>
+    <h3 class="text-center mb-4 text-primary fw-bold">ิดตามงานวิจัยผิวหนัง รามาธิบดี 2.25</h3>
 
-    <div id="login-section" class="card shadow-sm p-4">
+    <div id="login-section" class="card shadow-sm p-4 mx-auto" style="max-width: 400px;">
         <div class="text-center mb-3">
             <span id="login-status" class="text-warning fw-bold">กำลังเชื่อมต่อระบบ LINE...</span>
         </div>
         <div class="mb-3">
-            <label class="form-label">Rama ID</label>
-            <input type="tel" id="login-ramaid" class="form-control" placeholder="ระบุ Rama ID" inputmode="numeric">
+            <label class="form-label fw-bold">รหัสบุคลากร (Rama ID)</label>
+            <input type="tel" id="login-ramaid" class="form-control form-control-lg text-center" placeholder="ระบุตัวเลข" inputmode="numeric">
         </div>
-        <button id="login-btn" class="btn btn-primary w-100" onclick="login()" disabled>เข้าสู่ระบบ</button>
+        <button id="login-btn" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm" onclick="login()" disabled>เข้าสู่ระบบ</button>
     </div>
 
     <div id="app-section" style="display:none;">
-        <div class="alert alert-info py-2 mb-3 shadow-sm d-flex justify-content-between align-items-center flex-wrap gap-2">
+        
+        <div class="alert alert-info py-2 mb-4 shadow-sm d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span>👤 <span id="display-username" class="fw-bold text-primary"></span></span>
             <div class="text-end">
-                <span id="role-badge" class="badge bg-secondary shadow-sm me-1" style="display:none; font-size: 0.8rem;">กำลังตรวจสอบสิทธิ์...</span>
+                <span id="role-badge" class="badge bg-secondary shadow-sm me-2" style="display:none; font-size: 0.8rem;">กำลังตรวจสอบสิทธิ์...</span>
+                <button class="btn btn-sm btn-success fw-bold shadow-sm me-1" onclick="openDashboard()">📊 Dashboard</button>
                 <button class="btn btn-sm btn-outline-primary bg-white me-1" onclick="fetchInitialData()">🔄 รีเฟรช</button>
                 <button class="btn btn-sm btn-outline-danger bg-white" onclick="location.reload()">🚪 ออก</button>
             </div>
         </div>
 
-        <div class="mb-3">
-            <label class="form-label fw-bold">เลือกงานวิจัย</label>
-            <select id="research-selector" class="form-select border-primary shadow-sm" onchange="loadResearch(this.value)">
-                <option value="">-- กำลังโหลดข้อมูล... --</option>
-            </select>
+        <div id="main-view">
+            <div class="mb-3">
+                <label class="form-label fw-bold">เลือกงานวิจัยที่ต้องการจัดการ</label>
+                <select id="research-selector" class="form-select form-select-lg border-primary shadow-sm" onchange="loadResearch(this.value)">
+                    <option value="">-- กำลังโหลดข้อมูล... --</option>
+                </select>
+            </div>
+
+            <form id="research-form" style="display:none;">
+                <div class="card shadow-sm p-3 mb-4 border-top border-4 border-primary">
+                    <h5 class="border-bottom pb-2 text-primary fw-bold">ข้อมูลทั่วไป</h5>
+                    <div class="mb-2">
+                        <label class="form-label fw-bold">Title (ชื่อเรื่อง) <span class="text-danger">*</span></label>
+                        <input type="text" id="Title" class="form-control bg-light" required placeholder="ระบุชื่อเรื่องงานวิจัย">
+                        <div id="mr_name_display" class="text-success small mt-2 fw-bold" style="display:none;"></div>
+                    </div>
+                    
+                    <div class="mb-3 mt-3">
+                        <label class="form-label fw-bold text-secondary">ทีมวิจัย (Other Research - แพทย์)</label>
+                        <div id="other_research_list" class="mb-2 p-2 border rounded bg-white" style="min-height: 45px;"></div>
+                        <button type="button" id="btn_add_doctor" class="btn btn-outline-primary btn-sm" onclick="openPicker('doctor')">+ เพิ่มรายชื่อแพทย์</button>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary">Main Staff (อาจารย์ที่ปรึกษาหลัก)</label>
+                        <select id="ramaID_MS" class="form-select" required onchange="currentData.ramaID_MS = this.value;"></select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary">อาจารย์ร่วม (Other Staff)</label>
+                        <div id="other_staff_list" class="mb-2 p-2 border rounded bg-white" style="min-height: 45px;"></div>
+                        <button type="button" id="btn_add_staff" class="btn btn-outline-primary btn-sm" onclick="openPicker('staff')">+ เพิ่มรายชื่ออาจารย์</button>
+                    </div>
+
+                    <div id="draft_upload_section" class="mb-3 mt-4 p-3 bg-light border border-secondary border-opacity-25 rounded">
+                        <label class="fw-bold text-dark">📄 Draft Protocol (PDF)</label>
+                        <div id="input_draft_wrap">
+                            <input type="file" id="file_protocol_draft" class="form-control form-control-sm mt-1" accept=".pdf" onchange="handleFileSelect('protocol_draft', this.id)">
+                            <small class="text-muted" id="draft_help_text">แนบไฟล์เพื่ออัปโหลด</small>
+                        </div>
+                        <div id="existing_draft_link" class="mt-2" style="display:none;"></div>
+                    </div>
+
+                    <div id="ec_reminder_section" class="mb-1 mt-3 p-3 bg-white border border-warning border-2 rounded shadow-sm" style="display:none;">
+                        <h6 class="fw-bold text-warning mb-1">⏱️ แจ้งเตือนสถานะเอกสาร EC</h6>
+                        <div id="ec_reminder_text" class="fs-6 mt-2"></div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm p-3 mb-4 border-top border-4 border-success">
+                    <h5 class="border-bottom pb-2 text-success fw-bold">ความก้าวหน้า (Progress)</h5>
+                    <div id="progress-container"></div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="button" id="save-btn" class="btn btn-success btn-lg w-100 fw-bold shadow" onclick="saveData()">💾 บันทึกการเปลี่ยนแปลง</button>
+                    <button type="button" class="btn btn-secondary btn-lg w-100 fw-bold" onclick="closeForm()">ปิดฟอร์ม</button>
+                </div>
+            </form>
         </div>
 
-        <form id="research-form" style="display:none;">
-            <div class="card shadow-sm p-3 mb-4">
-                <h5 class="border-bottom pb-2 text-primary">ข้อมูลทั่วไป</h5>
-                <div class="mb-2">
-                    <label class="form-label">Title (ชื่อเรื่อง) <span class="text-danger">*</span></label>
-                    <input type="text" id="Title" class="form-control" required placeholder="ระบุชื่อเรื่องงานวิจัย">
-                    <div id="mr_name_display" class="text-success small mt-1 fw-bold" style="display:none;"></div>
-                </div>
-                
-                <div class="mb-3">
-                    <label class="form-label fw-bold mt-2">ทีมวิจัย (Other Research - แพทย์)</label>
-                    <div id="other_research_list" class="mb-2 p-2 border rounded bg-light min-vh-5" style="min-height: 45px;"></div>
-                    <button type="button" id="btn_add_doctor" class="btn btn-outline-primary btn-sm" onclick="openPicker('doctor')">+ เพิ่มรายชื่อแพทย์</button>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Main Staff (อาจารย์ที่ปรึกษาหลัก)</label>
-                    <select id="ramaID_MS" class="form-select" required onchange="currentData.ramaID_MS = this.value;"></select>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-bold">อาจารย์ร่วม (Other Staff)</label>
-                    <div id="other_staff_list" class="mb-2 p-2 border rounded bg-light min-vh-5" style="min-height: 45px;"></div>
-                    <button type="button" id="btn_add_staff" class="btn btn-outline-primary btn-sm" onclick="openPicker('staff')">+ เพิ่มรายชื่ออาจารย์</button>
-                </div>
-
-                <div id="draft_upload_section" class="mb-3 mt-3 p-2 bg-light border rounded">
-                    <label class="fw-bold">📄 Draft Protocol (PDF)</label>
-                    <div id="input_draft_wrap">
-                        <input type="file" id="file_protocol_draft" class="form-control form-control-sm mt-1" accept=".pdf" onchange="handleFileSelect('protocol_draft', this.id)">
-                        <small class="text-muted" id="draft_help_text">แนบไฟล์เพื่ออัปโหลด</small>
-                    </div>
-                    <div id="existing_draft_link" class="mt-2" style="display:none;"></div>
-                </div>
+        <div id="dashboard-view" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+                <h4 class="text-primary fw-bold mb-0">📊 ภาพรวมงานวิจัย (Dashboard)</h4>
+                <button class="btn btn-outline-secondary shadow-sm" onclick="closeDashboard()">🔙 กลับไปหน้าจัดการ</button>
             </div>
+            
+            <div id="dashboard-container" class="row g-4">
+                </div>
+        </div>
 
-            <div class="card shadow-sm p-3 mb-4">
-                <h5 class="border-bottom pb-2 text-primary">ความก้าวหน้า (Progress)</h5>
-                <div id="progress-container"></div>
-            </div>
-
-            <div class="d-flex gap-2">
-                <button type="button" id="save-btn" class="btn btn-success w-100 py-2 fw-bold shadow" onclick="saveData()">💾 บันทึก / อัปเดตข้อมูล</button>
-                <button type="button" class="btn btn-secondary w-100 py-2" onclick="closeForm()">ปิดฟอร์ม</button>
-            </div>
-        </form>
     </div>
 </div>
 
@@ -109,6 +142,7 @@
     let pendingFiles = {}; 
     let currentPerms = {}; 
     
+    // 🌟 ย้าย Presentation มาไว้หลัง Data Analysis ตามคำขอ
     const progressSteps = [
         { key: 'protocol_draft', label: 'Protocol Draft', role: 'MR', hasFile: 'draft_link' },
         { key: 'MS_protocol_draft', label: 'MS Protocol Draft', role: 'MS' },
@@ -120,6 +154,7 @@
         { key: 'MS_EC_approve', label: 'MS EC Approve', role: 'MS' },
         { key: 'data_collect', label: 'Data Collect', role: 'MR' },
         { key: 'data_analysis', label: 'Data Analysis', role: 'MR' },
+        { key: 'presentation', label: 'Presentation (Short Answer)', role: 'MR', needsText: true }, // 🌟 MOVED
         { key: 'manu_draft', label: 'Manuscript Draft', role: 'MR', hasFile: 'manu_draft_link' },
         { key: 'MS_manu_draft', label: 'MS Manuscript Draft', role: 'MS' },
         { key: 'manu_submis', label: 'Manuscript Submission', role: 'MR' },
@@ -127,8 +162,21 @@
         { key: 'manu_revise', label: 'Manuscript Revise', role: 'MR' },
         { key: 'MS_manu_revise', label: 'MS Manuscript Revise', role: 'MS' },
         { key: 'manu_accept', label: 'Manuscript Accept', role: 'MR', hasFile: 'Manu_link' }, 
-        { key: 'presentation', label: 'Presentation', role: 'MR', needsText: true }, 
         { key: 'MS_manu_accept', label: 'MS Final Accept', role: 'MS' }
+    ];
+
+    const dashboardSteps = [
+        { key: 'protocol_draft', label: 'Protocol' },
+        { key: 'EC_subm', label: 'EC Subm' },
+        { key: 'EC_correct', label: 'EC Cor' },
+        { key: 'EC_approve', label: 'EC Appr' },
+        { key: 'data_collect', label: 'Data Col' },
+        { key: 'data_analysis', label: 'Data Ana' },
+        { key: 'presentation', label: 'Present' }, // เพิ่มใน Dashboard ด้วย
+        { key: 'manu_draft', label: 'Manu Dft' },
+        { key: 'manu_submis', label: 'Manu Sub' },
+        { key: 'manu_revise', label: 'Manu Rev' },
+        { key: 'manu_accept', label: 'Manu Acc' }
     ];
 
     window.onload = async () => { 
@@ -139,10 +187,10 @@
                 currentUser.line_uid = profile.userId;
                 currentUser.line_displayname = profile.displayName; 
                 
-                document.getElementById('login-status').innerText = `✅ พร้อมใช้งาน (เข้าสู่ระบบด้วย LINE: ${currentUser.line_displayname})`;
+                document.getElementById('login-status').innerText = `✅ พร้อมใช้งาน (LINE: ${currentUser.line_displayname})`;
                 document.getElementById('login-status').className = "text-success fw-bold";
             } else {
-                document.getElementById('login-status').innerText = "✅ พร้อมใช้งาน (โหมดเบราว์เซอร์ปกติ)";
+                document.getElementById('login-status').innerText = "✅ พร้อมใช้งาน (เบราว์เซอร์ปกติ)";
                 document.getElementById('login-status').className = "text-primary fw-bold";
             }
         } catch (e) {
@@ -167,13 +215,29 @@
         return foundKey ? obj[foundKey] : null;
     }
 
+    // 🌟 ระบบคำนวณ Tag แจ้งเตือน
+    function generateECTag(expireDateStr) {
+        if (!expireDateStr || expireDateStr.trim() === '') return '';
+        const expireDate = new Date(expireDateStr);
+        if (isNaN(expireDate.getTime())) return '';
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); 
+        expireDate.setHours(0, 0, 0, 0);
+
+        const diffTime = expireDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+
+        if (diffDays < 0) return `<span class="badge bg-danger ms-2 blink-alert shadow-sm">⚠️ หมดอายุแล้ว (${Math.abs(diffDays)} วัน)</span>`;
+        if (diffDays <= 30) return `<span class="badge bg-danger ms-2 shadow-sm">⚠️ เหลือ ${diffDays} วัน</span>`;
+        if (diffDays <= 90) return `<span class="badge bg-warning text-dark ms-2 shadow-sm">⏳ เหลือ ${diffDays} วัน</span>`;
+        return `<span class="badge bg-success ms-2 shadow-sm">✅ เหลือ ${diffDays} วัน</span>`;
+    }
+
     function login() {
         let id = document.getElementById('login-ramaid').value.trim();
         if (!id) return Swal.fire('แจ้งเตือน', 'กรุณาระบุ Rama ID', 'warning');
-        
-        id = id.replace(/^0+/, '');
-        if (!id) id = "0"; 
-        
+        id = id.replace(/^0+/, '') || "0"; 
         currentUser.id = id;
         fetchInitialData();
     }
@@ -236,6 +300,7 @@
         document.getElementById('research-form').style.display = 'none';
         document.getElementById('research-selector').value = '';
         document.getElementById('role-badge').style.display = 'none';
+        document.getElementById('ec_reminder_section').style.display = 'none';
     }
 
     function openPicker(type) {
@@ -321,6 +386,7 @@
             document.getElementById('ramaID_MS').disabled = false;
             document.getElementById('existing_draft_link').style.display = 'none';
             document.getElementById('draft_help_text').innerText = "แนบไฟล์เพื่ออัปโหลด";
+            document.getElementById('ec_reminder_section').style.display = 'none';
         } else {
             const res = masterData.researches.find(r => r.rowIndex == val);
             currentData = { ...res };
@@ -351,6 +417,16 @@
             } else { 
                 document.getElementById('draft_help_text').innerText = "แนบไฟล์เพื่ออัปโหลด";
                 draftLinkContainer.style.display = 'none'; 
+            }
+
+            // 🌟 คำนวณและแสดงป้ายเตือนวันหมดอายุ EC ทันที 🌟
+            const ecExpireDate = getSafeData(currentData, 'EC_expire_date');
+            const reminderSec = document.getElementById('ec_reminder_section');
+            if (ecExpireDate) {
+                reminderSec.style.display = 'block';
+                document.getElementById('ec_reminder_text').innerHTML = `วันหมดอายุในระบบ: <b>${ecExpireDate}</b> ${generateECTag(ecExpireDate)}`;
+            } else {
+                reminderSec.style.display = 'none';
             }
         }
 
@@ -403,6 +479,7 @@
             
             let isMyRole = (step.role === 'MR' && currentPerms.isMR) || (step.role === 'MS' && currentPerms.isMS);
             
+            // 🌟 MS Bypass
             const msEditableSteps = ['EC_approve', 'manu_draft', 'manu_accept', 'presentation'];
             if (currentPerms.isMS && msEditableSteps.includes(step.key)) {
                 isMyRole = true;
@@ -427,25 +504,17 @@
                 else if (isActionLocked) cardStyle = 'step-locked';
             }
 
-            // ==========================================
-            // 🌟 เปลี่ยนข้อความบนปุ่ม ให้แสดงเป็น Timestamp 🌟
-            // ==========================================
             let displayBtnText = 'ลงเวลา';
             if (val) {
-                // ถ้าเป็นช่องให้กรอกข้อความ (เช่น Presentation) ให้แสดงคำว่า อัปเดตข้อมูล ป้องกันปุ่มยาวเกินไป
-                if (step.needsText) {
-                    displayBtnText = '🔄 อัปเดตข้อมูล';
-                } else {
-                    // ถ้าเป็นช่องทั่วไป ให้ดึงตัวแปรเวลามาโชว์เลย!
-                    displayBtnText = `🔄 ${val}`;
-                }
+                if (step.needsText) displayBtnText = '🔄 อัปเดตข้อมูล';
+                else displayBtnText = `🔄 ${val}`;
             }
             const btnClass = val ? 'btn-outline-success fw-bold' : 'btn-outline-primary';
 
             let html = `
-                <div class="card p-2 step-card mb-2 ${cardStyle} shadow-sm">
+                <div class="card p-2 step-card mb-2 ${cardStyle} shadow-sm border border-secondary border-opacity-25">
                     <div class="d-flex justify-content-between align-items-center">
-                        <small class="fw-bold text-dark">${step.label} <span class="badge bg-secondary">${step.role}</span></small>
+                        <span class="fw-bold text-dark" style="font-size:0.9rem;">${step.label} <span class="badge bg-secondary ms-1">${step.role}</span></span>
                         <button type="button" id="btn_${step.key}" data-needs-check="${needsCondition}" class="btn btn-sm ${btnClass}" 
                             onclick="stamp('${step.key}')" ${isActionLocked ? 'disabled' : ''}>
                             ${displayBtnText}
@@ -454,7 +523,7 @@
 
             if(step.hasFile && step.key !== 'protocol_draft' && prevOk && isMyRole && !isViewer) {
                 const fileLabel = val ? 'แนบไฟล์ใหม่ (หากต้องการเขียนทับของเดิม)' : 'แนบไฟล์ PDF';
-                html += `<div class="mt-2"><label class="small text-muted fw-bold">${fileLabel}</label><input type="file" id="file_${step.key}" class="form-control form-control-sm" accept=".pdf" onchange="handleFileSelect('${step.key}', this.id)"></div>`;
+                html += `<div class="mt-2"><label class="small text-muted fw-bold">${fileLabel}</label><input type="file" id="file_${step.key}" class="form-control form-control-sm border-secondary border-opacity-50" accept=".pdf" onchange="handleFileSelect('${step.key}', this.id)"></div>`;
             }
 
             const fileUrl = getSafeData(currentData, step.hasFile);
@@ -472,8 +541,8 @@
 
                 if (isMyRole && !isViewer) {
                     html += `
-                    <div class="mt-2 row gx-2 bg-light p-2 rounded border">
-                        <div class="col-12 mb-1"><small class="text-danger fw-bold">* ${val ? 'สามารถแก้ไขวันที่ได้' : 'แนบไฟล์ และระบุวันที่ให้ครบ เพื่อปลดล็อค'}</small></div>
+                    <div class="mt-2 row gx-2 bg-light p-2 rounded border border-secondary border-opacity-25">
+                        <div class="col-12 mb-1"><small class="text-danger fw-bold">* ${val ? 'แก้ไขวันที่ได้' : 'แนบไฟล์ และระบุวันที่ให้ครบ เพื่อปลดล็อค'}</small></div>
                         <div class="col-6"><label class="small text-muted fw-bold">วันที่อนุมัติ</label><input type="date" id="date_${step.key}" class="form-control form-control-sm" value="${appDate}" onchange="checkConditions()"></div>
                         <div class="col-6"><label class="small text-muted fw-bold">วันหมดอายุ</label><input type="date" id="expire_${step.key}" class="form-control form-control-sm" value="${expDate}" onchange="checkConditions()"></div>
                     </div>`;
@@ -484,7 +553,7 @@
 
             if (step.needsText && prevOk) {
                 if (isMyRole && !isViewer) {
-                    html += `<div class="mt-2"><label class="small text-muted fw-bold">รายละเอียด</label><input type="text" id="text_${step.key}" class="form-control form-control-sm" placeholder="ระบุรายละเอียด Presentation..." value="${val || ''}" oninput="checkConditions()"></div>`;
+                    html += `<div class="mt-2"><label class="small text-muted fw-bold">รายละเอียด (Short Answer)</label><input type="text" id="text_${step.key}" class="form-control form-control-sm border-secondary border-opacity-50" placeholder="พิมพ์รายละเอียดที่นี่..." value="${val || ''}" oninput="checkConditions()"></div>`;
                 } else if (val) {
                     html += `<div class="mt-2 small text-success fw-bold">📝 รายละเอียด: <span class="text-dark">${val}</span></div>`;
                 }
@@ -613,6 +682,104 @@
             console.error("Save Error Detail:", e);
             Swal.fire('ข้อผิดพลาดทางเทคนิค', 'บันทึกไม่สำเร็จ: ' + e.message, 'error'); 
         }
+    }
+
+    // ==========================================
+    // 📊 ระบบ DASHBOARD (ดึงมาไว้ในนี้เลย)
+    // ==========================================
+    function formatList(rawString) {
+        if (!rawString) return '<span class="text-muted small">-</span>';
+        return rawString.toString().split('\n').filter(n => n.trim() !== '').join('<br>');
+    }
+
+    function openDashboard() {
+        document.getElementById('main-view').style.display = 'none';
+        document.getElementById('dashboard-view').style.display = 'block';
+        loadDashboardData();
+    }
+
+    function closeDashboard() {
+        document.getElementById('dashboard-view').style.display = 'none';
+        document.getElementById('main-view').style.display = 'block';
+    }
+
+    function loadDashboardData() {
+        const container = document.getElementById('dashboard-container');
+        container.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">กำลังโหลดและจัดเรียงข้อมูล...</p></div>';
+
+        fetch(`${GAS_URL}?action=getAllResearch`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.error) return Swal.fire('Error', data.error, 'error');
+                container.innerHTML = '';
+                
+                let activeResearches = data.researches.filter(res => getSafeData(res, 'MS_manu_accept') === "");
+
+                if (activeResearches.length === 0) {
+                    container.innerHTML = '<div class="col-12 text-center text-success py-5"><h5>🎉 ไม่มีงานวิจัยที่อยู่ระหว่างดำเนินการ</h5><p class="text-muted">งานวิจัยทั้งหมดได้รับการอนุมัติเรียบร้อยแล้ว</p></div>';
+                    return;
+                }
+
+                activeResearches.forEach(res => {
+                    let score = 0;
+                    dashboardSteps.forEach(step => {
+                        if (getSafeData(res, step.key) !== "") score++;
+                    });
+                    res.progressScore = score; 
+                });
+
+                activeResearches.sort((a, b) => b.progressScore - a.progressScore);
+
+                activeResearches.forEach(res => {
+                    const title = getSafeData(res, 'Title') || 'ไม่ได้ระบุชื่อเรื่อง';
+                    const mrName = getSafeData(res, 'main_research') || getSafeData(res, 'ramaID_MR') || '-';
+                    const msName = getSafeData(res, 'main_staff') || getSafeData(res, 'ramaID_MS') || '-';
+                    const orList = formatList(getSafeData(res, 'other_research'));
+                    const osList = formatList(getSafeData(res, 'other_staff'));
+
+                    const ecExpireDate = getSafeData(res, 'EC_expire_date');
+                    const ecAlertTag = generateECTag(ecExpireDate);
+
+                    let stepsHtml = '';
+                    dashboardSteps.forEach(step => {
+                        const isDone = getSafeData(res, step.key) !== "";
+                        const statusClass = isDone ? 'done' : 'pending';
+                        stepsHtml += `<div class="step-box ${statusClass}">${step.label}</div>`;
+                    });
+
+                    const percentComplete = Math.round((res.progressScore / dashboardSteps.length) * 100);
+
+                    const cardHtml = `
+                    <div class="col-md-6 col-lg-12">
+                        <div class="card dashboard-card shadow-sm h-100 border-start border-4 border-primary">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start border-bottom pb-2 mb-3">
+                                    <h5 class="card-title text-dark fw-bold mb-0">📄 ${title} ${ecAlertTag}</h5>
+                                    <span class="badge bg-primary rounded-pill">คืบหน้า ${percentComplete}%</span>
+                                </div>
+                                <div class="row gx-4 gy-3">
+                                    <div class="col-sm-6">
+                                        <div class="p-3 bg-light rounded border h-100">
+                                            <div class="mb-2"><div class="role-title">ผู้วิจัยหลัก (Main Research)</div><span class="badge bg-primary text-white" style="font-size:0.9rem;">${mrName}</span></div>
+                                            <div><div class="role-title">แพทย์ร่วม (Other Research)</div><div class="name-list mt-1">${orList}</div></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="p-3 bg-light rounded border h-100">
+                                            <div class="mb-2"><div class="role-title">อ.ที่ปรึกษาหลัก (Main Staff)</div><span class="badge bg-success text-white" style="font-size:0.9rem;">${msName}</span></div>
+                                            <div><div class="role-title">อาจารย์ร่วม (Other Staff)</div><div class="name-list mt-1">${osList}</div></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="step-container mt-3 pt-3 border-top">${stepsHtml}</div>
+                            </div>
+                        </div>
+                    </div>`;
+                    container.innerHTML += cardHtml;
+                });
+            }).catch(e => {
+                container.innerHTML = `<div class="col-12 text-center text-danger py-5">เกิดข้อผิดพลาดในการโหลดข้อมูล: ${e.message}</div>`;
+            });
     }
 </script>
 </body>
