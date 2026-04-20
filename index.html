@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.26</title>
+    <title>Research Rama Tracker v2.27</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -32,7 +32,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary fw-bold">ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.26</h3>
+    <h3 class="text-center mb-4 text-primary fw-bold">ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.27</h3>
 
     <div id="login-section" class="card shadow-sm p-4 mx-auto" style="max-width: 400px;">
         <div class="text-center mb-3">
@@ -43,6 +43,13 @@
             <input type="tel" id="login-ramaid" class="form-control form-control-lg text-center" placeholder="ระบุตัวเลข" inputmode="numeric">
         </div>
         <button id="login-btn" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm" onclick="login()" disabled>เข้าสู่ระบบ</button>
+
+        <hr class="mt-4 mb-3 text-secondary">
+        <div class="text-center">
+            <a href="summary.html" target="_blank" class="btn btn-outline-secondary w-100 fw-bold">
+                📈 ดูสรุปภาระงานวิจัย (Summary)
+            </a>
+        </div>
     </div>
 
     <div id="app-section" style="display:none;">
@@ -150,7 +157,6 @@
         { key: 'MS_EC_approve', label: 'MS EC Approve', role: 'MS' },
         { key: 'data_collect', label: 'Data Collect', role: 'MR' },
         { key: 'data_analysis', label: 'Data Analysis', role: 'MR' },
-        // 🌟 ย้าย Presentation (Short Answer) มาไว้หลัง data_analysis
         { key: 'presentation', label: 'Presentation (งานประชุม/สถานที่/วันเวลา)', role: 'MR', needsText: true }, 
         { key: 'manu_draft', label: 'Manuscript Draft', role: 'MR', hasFile: 'manu_draft_link' },
         { key: 'MS_manu_draft', label: 'MS Manuscript Draft', role: 'MS' },
@@ -352,7 +358,6 @@
                 document.getElementById('existing_draft_link').style.display = 'block';
             } else { document.getElementById('existing_draft_link').style.display = 'none'; }
 
-            // 🌟 แสดงป้ายเตือน EC ใต้ Title 🌟
             const ecExpireDate = getSafeData(currentData, 'EC_expire_date');
             const reminderSec = document.getElementById('ec_reminder_section');
             if (ecExpireDate) {
@@ -400,7 +405,6 @@
             const val = getSafeData(currentData, step.key);
             let isMyRole = (step.role === 'MR' && currentPerms.isMR) || (step.role === 'MS' && currentPerms.isMS);
             
-            // 🌟 MS Bypass สำหรับ 4 ขั้นตอนสำคัญ
             const msEditableSteps = ['EC_approve', 'manu_draft', 'manu_accept', 'presentation'];
             if (currentPerms.isMS && msEditableSteps.includes(step.key)) isMyRole = true;
 
@@ -422,7 +426,7 @@
             let html = `
                 <div class="card p-2 step-card mb-2 ${cardStyle} shadow-sm border border-secondary border-opacity-25">
                     <div class="d-flex justify-content-between align-items-center">
-                        <span class="fw-bold text-dark small">${step.label} <span class="badge bg-secondary">${step.role}</span></span>
+                        <span class="fw-bold text-dark small">${step.label} <span class="badge bg-secondary ms-1">${step.role}</span></span>
                         <button type="button" id="btn_${step.key}" data-needs-check="${needsCondition}" class="btn btn-sm ${btnClass}" 
                             onclick="stamp('${step.key}')" ${isActionLocked ? 'disabled' : ''}>
                             ${displayBtnText}
@@ -430,7 +434,8 @@
                     </div>`;
 
             if(step.hasFile && step.key !== 'protocol_draft' && prevOk && isMyRole && !isViewer) {
-                html += `<div class="mt-2"><input type="file" id="file_${step.key}" class="form-control form-control-sm" accept=".pdf" onchange="handleFileSelect('${step.key}', this.id)"></div>`;
+                const fileLabel = val ? 'แนบไฟล์ใหม่ (หากต้องการเขียนทับของเดิม)' : 'แนบไฟล์ PDF';
+                html += `<div class="mt-2"><label class="small text-muted fw-bold">${fileLabel}</label><input type="file" id="file_${step.key}" class="form-control form-control-sm border-secondary border-opacity-50" accept=".pdf" onchange="handleFileSelect('${step.key}', this.id)"></div>`;
             }
 
             const fileUrl = getSafeData(currentData, step.hasFile);
@@ -454,7 +459,7 @@
 
             if (step.needsText && prevOk) {
                 if (isMyRole && !isViewer) {
-                    html += `<div class="mt-2"><label class="small fw-bold">งานประชุม/สถานที่/วันเวลา</label><input type="text" id="text_${step.key}" class="form-control form-control-sm" placeholder="กรอกข้อมูล..." value="${val || ''}" oninput="checkConditions()"></div>`;
+                    html += `<div class="mt-2"><label class="small fw-bold">งานประชุม/สถานที่/วันเวลา</label><input type="text" id="text_${step.key}" class="form-control form-control-sm border-secondary border-opacity-50" placeholder="กรอกข้อมูล..." value="${val || ''}" oninput="checkConditions()"></div>`;
                 } else if (val) {
                     html += `<div class="mt-2 small text-success">📝 ข้อมูล: <span class="text-dark">${val}</span></div>`;
                 }
@@ -492,13 +497,11 @@
         });
     }
 
-    // 🌟 2. ปรับระบบการลงเวลาใหม่ (Timestamp logic) 🌟
     function stamp(key) {
         if(isViewer) return;
         const step = progressSteps.find(s => s.key === key);
         const oldVal = getSafeData(currentData, key);
 
-        // รายชื่อขั้นตอนที่อนุญาตให้อัปเดต Timestamp ใหม่ได้
         const updateTimeSteps = ['protocol_draft', 'EC_approve', 'manu_draft', 'manu_accept'];
 
         if(key === 'EC_approve') {
@@ -509,9 +512,8 @@
         if(step.needsText) {
             currentData[key] = document.getElementById(`text_${key}`).value;
         } else {
-            // ถ้าเคยลงเวลาไปแล้ว และไม่อยู่ใน 4 ขั้นตอนที่กำหนด ให้คงเวลาเดิมไว้
             if (oldVal && !updateTimeSteps.includes(key)) {
-                // ไม่เปลี่ยนค่า Timestamp (ใช้ค่าเดิมใน currentData[key])
+                // คงเวลาเดิมไว้
             } else {
                 currentData[key] = new Date().toLocaleString('th-TH');
             }
@@ -525,7 +527,6 @@
             const titleInput = document.getElementById('Title').value.trim();
             if (!titleInput) return Swal.fire('แจ้งเตือน', 'กรุณาระบุ Title', 'warning');
 
-            // กวาดเก็บข้อมูลแก้กรณีลืมกดปุ่มอัปเดตย่อย
             progressSteps.forEach(step => {
                 if (step.needsDates && getSafeData(currentData, step.key)) {
                     currentData['EC_approve_date'] = document.getElementById(`date_${step.key}`).value;
