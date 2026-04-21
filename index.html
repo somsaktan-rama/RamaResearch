@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.29 (Classic Dashboard + Progress %)</title>
+    <title>Research Rama Tracker v2.30 (Smart Action Flag)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -26,13 +26,13 @@
         .step-box.done::before { content: '✔️'; }
         .step-box.pending::before { content: '⏳'; opacity: 0.5; }
         .blink-alert { animation: blinker 1.5s linear infinite; }
-        @keyframes blinker { 50% { opacity: 0.4; } }
+        @keyframes blinker { 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary fw-bold">ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.29</h3>
+    <h3 class="text-center mb-4 text-primary fw-bold">ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.30</h3>
 
     <div id="login-section" class="card shadow-sm p-4 mx-auto" style="max-width: 400px;">
         <div class="text-center mb-3">
@@ -572,7 +572,7 @@
     }
 
     // ==========================================
-    // 📊 Dashboard Logic (Classic + %)
+    // 📊 Dashboard Logic (Smart Sort & Action Flag)
     // ==========================================
     function formatList(rawString) {
         if (!rawString) return '<span class="text-muted small">-</span>';
@@ -584,7 +584,7 @@
     
     function loadDashboardData() {
         const container = document.getElementById('dashboard-container');
-        container.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">กำลังโหลดและจัดเรียงข้อมูล...</p></div>';
+        container.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">กำลังโหลดและตรวจสอบสถานะการทำงาน...</p></div>';
         
         fetch(`${GAS_URL}?action=getAllResearch`).then(res => res.json()).then(data => {
             container.innerHTML = '';
@@ -595,10 +595,48 @@
             }
 
             active.forEach(res => {
+                // 1. คำนวณเปอร์เซ็นต์ % ปกติ
                 let score = 0; dashboardSteps.forEach(s => { if(getSafeData(res, s.key)) score++; });
                 res.score = score;
+
+                // 🌟 2. ตรวจสอบว่า "ถึงคิวของฉัน" หรือยัง? 🌟
+                const dbMR = getSafeData(res, 'ramaID_MR');
+                const dbMS = getSafeData(res, 'ramaID_MS');
+                const isMR = isSameID(currentUser.id, dbMR);
+                const isMS = isSameID(currentUser.id, dbMS);
+
+                res.isMyActionRequired = false;
+                res.actionableLabel = "";
+
+                if (isMR || isMS) {
+                    let prevOk = true;
+                    // ลูปหาขั้นตอนแรกที่ยังว่างอยู่
+                    for (let i = 0; i < progressSteps.length; i++) {
+                        let step = progressSteps[i];
+                        let val = getSafeData(res, step.key);
+                        let isMyRole = (step.role === 'MR' && isMR) || (step.role === 'MS' && isMS);
+                        
+                        // MS Bypass
+                        const msEditableSteps = ['EC_approve', 'manu_draft', 'manu_accept', 'presentation'];
+                        if (isMS && msEditableSteps.includes(step.key)) isMyRole = true;
+
+                        if (!val) {
+                            if (prevOk && isMyRole) {
+                                res.isMyActionRequired = true;
+                                res.actionableLabel = step.label; // ดึงชื่อขั้นตอนที่รอมากระทุ้ง
+                            }
+                            break; // เจออันที่ว่างอันแรกก็หยุดเช็คเลย (เพราะต้องทำตามลำดับ)
+                        }
+                    }
+                }
             });
-            active.sort((a,b) => b.score - a.score);
+
+            // 🌟 3. จัดเรียง: ดันงานที่เป็นคิวของฉันขึ้นบนสุด -> ถ้าคิวฉันเหมือนกัน ให้ดูเปอร์เซ็นต์
+            active.sort((a,b) => {
+                if (a.isMyActionRequired && !b.isMyActionRequired) return -1;
+                if (!a.isMyActionRequired && b.isMyActionRequired) return 1;
+                return b.score - a.score;
+            });
 
             active.forEach(res => {
                 const title = getSafeData(res, 'Title') || 'ไม่ได้ระบุชื่อเรื่อง';
@@ -606,10 +644,7 @@
                 const msName = getSafeData(res, 'main_staff') || getSafeData(res, 'ramaID_MS') || '-';
                 const orList = formatList(getSafeData(res, 'other_research'));
                 const osList = formatList(getSafeData(res, 'other_staff'));
-                const ecExpireDate = getSafeData(res, 'EC_expire_date');
-                const ecTag = generateECTag(ecExpireDate);
-
-                // 🌟 คำนวณเปอร์เซ็นต์ความคืบหน้า 🌟
+                const ecTag = generateECTag(getSafeData(res, 'EC_expire_date'));
                 const percentComplete = Math.round((res.score / dashboardSteps.length) * 100);
 
                 let steps = ''; 
@@ -618,12 +653,19 @@
                     steps += `<div class="step-box ${isDone ? 'done' : 'pending'}">${s.label}</div>`;
                 });
 
+                // 🌟 ใส่ป้ายเตือนและกรอบสีแดง ถ้าถึงคิวของคนนี้
+                const actionBadge = res.isMyActionRequired ? `<span class="badge bg-danger blink-alert shadow-sm mt-2" style="font-size: 0.85rem;">👉 รอคุณดำเนินการ: ${res.actionableLabel}</span>` : '';
+                const borderClass = res.isMyActionRequired ? 'border-danger' : 'border-primary';
+
                 container.innerHTML += `
                 <div class="col-md-6 col-lg-12">
-                    <div class="card dashboard-card shadow-sm h-100">
+                    <div class="card dashboard-card shadow-sm h-100 border-start border-4 ${borderClass}">
                         <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
-                                <h5 class="card-title text-dark fw-bold mb-0">📄 ${title} ${ecTag}</h5>
+                            <div class="d-flex justify-content-between align-items-start border-bottom pb-2 mb-3">
+                                <div>
+                                    <h5 class="card-title text-dark fw-bold mb-0">📄 ${title} ${ecTag}</h5>
+                                    ${actionBadge}
+                                </div>
                                 <span class="badge bg-primary rounded-pill shadow-sm" style="font-size: 0.85rem;">คืบหน้า ${percentComplete}%</span>
                             </div>
 
