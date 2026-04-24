@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.31 (Smart Dropdown + Flag)</title>
+    <title>Research Rama Tracker v2.32 (Smart MS Lock)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -32,7 +32,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary fw-bold">ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.31</h3>
+    <h3 class="text-center mb-4 text-primary fw-bold">ระบบติดตามงานวิจัย (Dermatology)</h3>
 
     <div id="login-section" class="card shadow-sm p-4 mx-auto" style="max-width: 400px;">
         <div class="text-center mb-3">
@@ -89,7 +89,8 @@
 
                     <div class="mb-3">
                         <label class="form-label fw-bold text-secondary small">Main Staff (อาจารย์ที่ปรึกษาหลัก)</label>
-                        <select id="ramaID_MS" class="form-select form-select-sm" required onchange="currentData.ramaID_MS = this.value;"></select>
+                        <select id="ramaID_MS" class="form-select form-select-sm border-primary" required></select>
+                        <div id="ms_locked_text" class="text-danger small mt-1 fw-bold" style="display:none;">🔒 MS เริ่มตรวจแล้ว (ไม่สามารถเปลี่ยนอาจารย์ที่ปรึกษาได้)</div>
                     </div>
 
                     <div class="mb-3">
@@ -121,7 +122,7 @@
 
         <div id="dashboard-view" style="display:none;">
             <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-                <h4 class="text-primary fw-bold mb-0">📊 ภาพรวมงานวิจัย (Dashboard)</h4>
+                <h4 class="text-primary fw-bold mb-0">📊 ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.32</h4>
                 <button class="btn btn-outline-secondary shadow-sm" onclick="closeDashboard()">🔙 กลับไปหน้าจัดการ</button>
             </div>
             <div id="dashboard-container" class="row g-4"></div>
@@ -132,7 +133,7 @@
 <script>
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbyPuWxqyYQ7ulh0Dyb-fgc29FbtYfoSHtu9MgN-Rih9PKKshHDuiDncC6qZJe6OoGU/exec';
     const LIFF_ID = '2009730964-NicRUF0I';
-    
+     
     let currentUser = { id: '', ip: '', line_uid: '', line_displayname: '' };
     let masterData = {};
     let currentData = { other_research: [], other_staff: [] }; 
@@ -251,9 +252,6 @@
                 document.getElementById('display-username').innerText = data.currentUserName;
                 masterData = data;
 
-                // ==========================================
-                // 🌟 ระบบประเมินสถานะ 🚩 เพื่อทำ Dropdown 🌟
-                // ==========================================
                 data.researches.forEach(res => {
                     const dbMR = getSafeData(res, 'ramaID_MR');
                     const dbMS = getSafeData(res, 'ramaID_MS');
@@ -285,23 +283,16 @@
                     }
                 });
 
-                // 🌟 จัดเรียงข้อมูลใน Dropdown 🌟
                 data.researches.sort((a, b) => {
-                    // 1. งานที่ต้อง Action (มี 🚩) ให้อยู่บนสุด
                     if (a.isMyActionRequired && !b.isMyActionRequired) return -1;
                     if (!a.isMyActionRequired && b.isMyActionRequired) return 1;
-
-                    // 2. งานที่เป็น MR/MS (แต่ไม่ต้อง Action) ให้อยู่ตรงกลาง
                     const aPrimary = a.isMR || a.isMS;
                     const bPrimary = b.isMR || b.isMS;
                     if (aPrimary && !bPrimary) return -1;
                     if (!aPrimary && bPrimary) return 1;
-
-                    // 3. งานที่เป็น OR/OS จะถูกดันไปอยู่ล่างสุดโดยอัตโนมัติ
                     return 0; 
                 });
 
-                // 🌟 สร้าง HTML สำหรับ Dropdown 🌟
                 let html = '<option value="">-- เลือกงานวิจัย --</option>';
                 data.researches.forEach(r => {
                     const flagHtml = r.isMyActionRequired ? '🚩 ' : '';
@@ -394,10 +385,16 @@
             currentData.main_research = masterData.currentUserName;
             document.getElementById('mr_name_display').innerText = `👨‍⚕️ ผู้วิจัยหลัก: ${currentData.main_research}`;
             document.getElementById('mr_name_display').style.display = 'block';
-            document.getElementById('Title').readOnly = false;
-            document.getElementById('ramaID_MS').disabled = false;
             document.getElementById('existing_draft_link').style.display = 'none';
             document.getElementById('ec_reminder_section').style.display = 'none';
+            
+            currentPerms = { isMR: true, isMS: false, isOR: false, isOS: false, isStaffGroup: false, canViewAllFiles: true };
+            isViewer = false;
+
+            document.getElementById('Title').readOnly = false;
+            document.getElementById('ramaID_MS').disabled = false;
+            document.getElementById('ms_locked_text').style.display = 'none';
+
         } else {
             const res = masterData.researches.find(r => r.rowIndex == val);
             currentData = { ...res };
@@ -405,16 +402,50 @@
             const rawOS = getSafeData(res, 'other_staff');
             currentData.other_research = rawOR ? String(rawOR).split('\n').filter(n => n) : [];
             currentData.other_staff = rawOS ? String(rawOS).split('\n').filter(n => n) : [];
-            const dbMR = getSafeData(res, 'ramaID_MR');
-            const dbMS = getSafeData(res, 'ramaID_MS');
-            const mrNameStr = getSafeData(res, 'main_research') || dbMR;
             
+            const dbMR = getSafeData(currentData, 'ramaID_MR');
+            const dbMS = getSafeData(currentData, 'ramaID_MS');
+            const myName = (masterData.currentUserName || "").trim();
+            currentPerms.isMR = isSameID(currentUser.id, dbMR);
+            currentPerms.isMS = isSameID(currentUser.id, dbMS);
+            currentPerms.isOS = currentData.other_staff.some(n => n.trim() === myName);
+            currentPerms.isOR = currentData.other_research.some(n => n.trim() === myName);
+            currentPerms.isStaffGroup = (masterData.otherStaffs || []).some(s => isSameID(s.id, currentUser.id));
+            currentPerms.canViewAllFiles = currentPerms.isMR || currentPerms.isMS || currentPerms.isOS || currentPerms.isStaffGroup;
+            isViewer = !currentPerms.isMR && !currentPerms.isMS;
+
+            const mrNameStr = getSafeData(res, 'main_research') || dbMR;
             document.getElementById('mr_name_display').innerText = `👨‍⚕️ ผู้วิจัยหลัก: ${mrNameStr}`;
             document.getElementById('mr_name_display').style.display = 'block';
             document.getElementById('Title').value = getSafeData(res, 'Title') || '';
-            document.getElementById('Title').readOnly = true;
-            document.getElementById('ramaID_MS').value = dbMS || '';
-            document.getElementById('ramaID_MS').disabled = true;
+
+            // 🌟 สร้างตัวเลือก MS ป้องกันการสูญหาย 🌟
+            let msSelect = document.getElementById('ramaID_MS');
+            let optionExists = Array.from(msSelect.options).some(opt => opt.value === dbMS);
+            if (!optionExists && dbMS) {
+                msSelect.add(new Option(getSafeData(res, 'main_staff') || dbMS, dbMS));
+            }
+            msSelect.value = dbMS || '';
+
+            // 🌟 ตรวจสอบว่า MS เข้ามาดำเนินการหรือยัง? 🌟
+            let hasMSAction = false;
+            progressSteps.forEach(s => {
+                if (s.role === 'MS' && getSafeData(res, s.key)) hasMSAction = true;
+            });
+
+            if (currentPerms.isMR && !hasMSAction) {
+                document.getElementById('Title').readOnly = false;
+                document.getElementById('ramaID_MS').disabled = false;
+                document.getElementById('ms_locked_text').style.display = 'none';
+            } else {
+                document.getElementById('Title').readOnly = true;
+                document.getElementById('ramaID_MS').disabled = true; // ล็อคทันทีถ้า MS เริ่มทำงานแล้ว
+                if (hasMSAction && currentPerms.isMR) {
+                    document.getElementById('ms_locked_text').style.display = 'block';
+                } else {
+                    document.getElementById('ms_locked_text').style.display = 'none';
+                }
+            }
 
             const safeDraftLink = getSafeData(res, 'draft_link');
             if(safeDraftLink) {
@@ -429,18 +460,6 @@
                 document.getElementById('ec_reminder_text').innerHTML = `วันหมดอายุ EC: ${ecExpireDate} ${generateECTag(ecExpireDate)}`;
             } else { reminderSec.style.display = 'none'; }
         }
-
-        const myName = (masterData.currentUserName || "").trim();
-        const dbMR = getSafeData(currentData, 'ramaID_MR');
-        const dbMS = getSafeData(currentData, 'ramaID_MS');
-        currentPerms.isMR = isSameID(currentUser.id, dbMR);
-        currentPerms.isMS = isSameID(currentUser.id, dbMS);
-        currentPerms.isOS = currentData.other_staff.some(n => n.trim() === myName);
-        currentPerms.isOR = currentData.other_research.some(n => n.trim() === myName);
-        currentPerms.isStaffGroup = (masterData.otherStaffs || []).some(s => isSameID(s.id, currentUser.id));
-        currentPerms.canViewAllFiles = currentPerms.isMR || currentPerms.isMS || currentPerms.isOS || currentPerms.isStaffGroup;
-        
-        isViewer = !currentPerms.isMR && !currentPerms.isMS;
 
         let badgeText = "Viewer"; let badgeClass = "bg-secondary";
         if (currentPerms.isMR) { badgeText = "MR"; badgeClass = "bg-success"; }
@@ -604,8 +623,18 @@
             Swal.fire({ title: 'กำลังบันทึก...', text: 'โปรดรอสักครู่', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             const payload = { ...currentData };
             payload.Title = titleInput;
-            payload.ramaID_MS = document.getElementById('ramaID_MS').value;
-            payload.main_staff = document.getElementById('ramaID_MS').options[document.getElementById('ramaID_MS').selectedIndex]?.text;
+            
+            // 🌟 ดึงข้อมูล MS เฉพาะตอนที่กล่องยังไม่ถูกล็อค (ถ้าถูกล็อคอยู่ ให้ใช้ค่าเดิมของมัน)
+            const msSelect = document.getElementById('ramaID_MS');
+            if (!msSelect.disabled) {
+                payload.ramaID_MS = msSelect.value;
+                payload.main_staff = msSelect.options[msSelect.selectedIndex]?.text;
+                if (payload.main_staff && payload.main_staff.includes('-- เลือก')) {
+                    payload.main_staff = ""; // กันเหนียว
+                }
+            }
+
+            if (!payload.main_research) payload.main_research = currentData.main_research;
             payload.other_research = currentData.other_research.join('\n');
             payload.other_staff = currentData.other_staff.join('\n');
             payload.draftLinkBase64 = pendingFiles['protocol_draft'] || null;
@@ -683,17 +712,11 @@
                 }
             });
 
-            // 🌟 จัดเรียง Dashboard เหมือนกับ Dropdown เป๊ะ 🌟
             active.sort((a,b) => {
-                // 1. Action Required
                 if (a.isMyActionRequired && !b.isMyActionRequired) return -1;
                 if (!a.isMyActionRequired && b.isMyActionRequired) return 1;
-                
-                // 2. บทบาท MR/MS (ไม่มี Action ก็ให้อยู่เหนือ OR/OS)
                 if (a.isPrimaryRole && !b.isPrimaryRole) return -1;
                 if (!a.isPrimaryRole && b.isPrimaryRole) return 1;
-
-                // 3. เรียงตามความคืบหน้า
                 return b.score - a.score;
             });
 
@@ -712,7 +735,6 @@
                     steps += `<div class="step-box ${isDone ? 'done' : 'pending'}">${s.label}</div>`;
                 });
 
-                // 🌟 แทรก 🚩 สำหรับ Dashboard
                 const actionBadge = res.isMyActionRequired ? `<span class="badge bg-danger blink-alert shadow-sm mt-2" style="font-size: 0.85rem;">🚩 รอคุณดำเนินการ: ${res.actionableLabel}</span>` : '';
                 const borderClass = res.isMyActionRequired ? 'border-danger' : 'border-primary';
 
