@@ -3,7 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.32 (Smart MS Lock)</title>
+    <title>Research Rama Tracker v2.33</title>
+    
+    <!-- 🌟 โค้ดส่วน PWA (ทำให้เป็นแอปเต็มจอ) 🌟 -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0d6efd">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Rama Research">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -28,20 +37,13 @@
         .blink-alert { animation: blinker 1.5s linear infinite; }
         @keyframes blinker { 50% { opacity: 0.5; } }
     </style>
-<link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0d6efd">
-    
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Rama Research">
-    <link rel="apple-touch-icon" href="icon-192.png">
-    
 </head>
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary fw-bold">ระบบติดตามงานวิจัย (Dermatology)</h3>
+    <h3 class="text-center mb-4 text-primary fw-bold">ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.33</h3>
 
+    <!-- 1. ส่วนล็อกอิน -->
     <div id="login-section" class="card shadow-sm p-4 mx-auto" style="max-width: 400px;">
         <div class="text-center mb-3">
             <span id="login-status" class="text-warning fw-bold">กำลังเชื่อมต่อระบบ LINE...</span>
@@ -56,8 +58,15 @@
         <div class="text-center">
             <a href="summary.html" target="_blank" class="btn btn-outline-secondary w-100 fw-bold">📈 ดูสรุปภาระงานวิจัย (Summary)</a>
         </div>
+
+        <!-- 🌟 คำแนะนำการติดตั้ง PWA สำหรับ iPhone 🌟 -->
+        <div class="mt-4 p-3 bg-light border border-secondary border-opacity-25 rounded text-secondary small text-start shadow-sm">
+            💡 <b>สำหรับผู้ใช้ iPhone/iPad:</b><br>
+            สามารถกดปุ่ม <kbd>Share</kbd> (สี่เหลี่ยมลูกศรชี้ขึ้น) ด้านล่างจอ แล้วเลือก <b>'Add to Home Screen'</b> เพื่อติดตั้งระบบเป็นแอปพลิเคชันได้
+        </div>
     </div>
 
+    <!-- 2. ส่วนแอปพลิเคชัน -->
     <div id="app-section" style="display:none;">
         <div class="alert alert-info py-2 mb-4 shadow-sm d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span>👤 <span id="display-username" class="fw-bold text-primary"></span></span>
@@ -130,7 +139,7 @@
 
         <div id="dashboard-view" style="display:none;">
             <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-                <h4 class="text-primary fw-bold mb-0">📊 ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.32</h4>
+                <h4 class="text-primary fw-bold mb-0">📊 ภาพรวมงานวิจัย (Dashboard)</h4>
                 <button class="btn btn-outline-secondary shadow-sm" onclick="closeDashboard()">🔙 กลับไปหน้าจัดการ</button>
             </div>
             <div id="dashboard-container" class="row g-4"></div>
@@ -141,7 +150,7 @@
 <script>
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbyPuWxqyYQ7ulh0Dyb-fgc29FbtYfoSHtu9MgN-Rih9PKKshHDuiDncC6qZJe6OoGU/exec';
     const LIFF_ID = '2009730964-NicRUF0I';
-     
+    
     let currentUser = { id: '', ip: '', line_uid: '', line_displayname: '' };
     let masterData = {};
     let currentData = { other_research: [], other_staff: [] }; 
@@ -427,7 +436,6 @@
             document.getElementById('mr_name_display').style.display = 'block';
             document.getElementById('Title').value = getSafeData(res, 'Title') || '';
 
-            // 🌟 สร้างตัวเลือก MS ป้องกันการสูญหาย 🌟
             let msSelect = document.getElementById('ramaID_MS');
             let optionExists = Array.from(msSelect.options).some(opt => opt.value === dbMS);
             if (!optionExists && dbMS) {
@@ -435,7 +443,6 @@
             }
             msSelect.value = dbMS || '';
 
-            // 🌟 ตรวจสอบว่า MS เข้ามาดำเนินการหรือยัง? 🌟
             let hasMSAction = false;
             progressSteps.forEach(s => {
                 if (s.role === 'MS' && getSafeData(res, s.key)) hasMSAction = true;
@@ -447,7 +454,7 @@
                 document.getElementById('ms_locked_text').style.display = 'none';
             } else {
                 document.getElementById('Title').readOnly = true;
-                document.getElementById('ramaID_MS').disabled = true; // ล็อคทันทีถ้า MS เริ่มทำงานแล้ว
+                document.getElementById('ramaID_MS').disabled = true;
                 if (hasMSAction && currentPerms.isMR) {
                     document.getElementById('ms_locked_text').style.display = 'block';
                 } else {
@@ -632,13 +639,12 @@
             const payload = { ...currentData };
             payload.Title = titleInput;
             
-            // 🌟 ดึงข้อมูล MS เฉพาะตอนที่กล่องยังไม่ถูกล็อค (ถ้าถูกล็อคอยู่ ให้ใช้ค่าเดิมของมัน)
             const msSelect = document.getElementById('ramaID_MS');
             if (!msSelect.disabled) {
                 payload.ramaID_MS = msSelect.value;
                 payload.main_staff = msSelect.options[msSelect.selectedIndex]?.text;
                 if (payload.main_staff && payload.main_staff.includes('-- เลือก')) {
-                    payload.main_staff = ""; // กันเหนียว
+                    payload.main_staff = "";
                 }
             }
 
@@ -659,7 +665,7 @@
     }
 
     // ==========================================
-    // 📊 Dashboard Logic (Synchronized Sort)
+    // 📊 Dashboard Logic
     // ==========================================
     function formatList(rawString) {
         if (!rawString) return '<span class="text-muted small">-</span>';
@@ -693,8 +699,6 @@
 
                 const isMR = isSameID(currentUser.id, dbMR);
                 const isMS = isSameID(currentUser.id, dbMS);
-                const isOR = rawOR.includes(myName);
-                const isOS = rawOS.includes(myName);
 
                 res.isMyActionRequired = false;
                 res.actionableLabel = "";
@@ -780,17 +784,18 @@
         });
     }
 </script>
+
+<!-- 🌟 ระบบ Service Worker สำหรับ PWA 🌟 -->
 <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js').then((reg) => {
-                    console.log('PWA Service Worker registered.', reg);
-                }).catch((err) => {
-                    console.log('PWA Service Worker registration failed:', err);
-                });
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js').then((reg) => {
+                console.log('PWA Service Worker registered.', reg);
+            }).catch((err) => {
+                console.log('PWA Service Worker registration failed:', err);
             });
-        }
-    </script>
-    
+        });
+    }
+</script>
 </body>
 </html>
