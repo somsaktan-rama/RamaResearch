@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Icon Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full text-center border-t-4 border-blue-500">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">สร้างไอคอน PWA</h2>
+        <p class="text-gray-500 mb-6 text-sm">อัปโหลดรูปภาพของคุณ เพื่อแปลงเป็นไฟล์ icon-192.png และ icon-512.png อัตโนมัติ</p>
+
+        <!-- ส่วนอัปโหลดรูปภาพ -->
+        <div class="mb-6">
+            <label for="imageUpload" class="cursor-pointer flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50 hover:bg-blue-100 transition">
+                <svg class="w-10 h-10 text-blue-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                <span class="text-blue-600 font-semibold">คลิกเพื่อเลือกรูปโลโก้</span>
+            </label>
+            <input type="file" id="imageUpload" accept="image/*" class="hidden">
+        </div>
+
+        <!-- แสดงภาพตัวอย่าง (ซ่อนไว้ก่อนจนกว่าจะอัปโหลด) -->
+        <div id="previewSection" class="hidden flex flex-col items-center space-y-4">
+            <p class="text-green-600 font-bold text-sm">✅ สร้างไอคอนสำเร็จแล้ว!</p>
+            
+            <img id="imagePreview" class="w-32 h-32 object-contain border rounded-lg shadow-sm mb-4" alt="Preview">
+
+            <!-- ปุ่มดาวน์โหลด -->
+            <div class="w-full flex flex-col gap-3">
+                <a id="download192" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow transition flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    ดาวน์โหลด icon-192.png
+                </a>
+                <a id="download512" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow transition flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    ดาวน์โหลด icon-512.png
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Canvas สำหรับวาดรูป (ซ่อนไว้) -->
+    <canvas id="canvas192" width="192" height="192" class="hidden"></canvas>
+    <canvas id="canvas512" width="512" height="512" class="hidden"></canvas>
+
+    <script>
+        const imageUpload = document.getElementById('imageUpload');
+        const previewSection = document.getElementById('previewSection');
+        const imagePreview = document.getElementById('imagePreview');
+        
+        const canvas192 = document.getElementById('canvas192');
+        const canvas512 = document.getElementById('canvas512');
+        const ctx192 = canvas192.getContext('2d');
+        const ctx512 = canvas512.getContext('2d');
+        
+        const download192 = document.getElementById('download192');
+        const download512 = document.getElementById('download512');
+
+        imageUpload.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    // วาดรูปลง Canvas ขนาด 192x192
+                    ctx192.clearRect(0, 0, 192, 192);
+                    ctx192.drawImage(img, 0, 0, 192, 192);
+                    
+                    // วาดรูปลง Canvas ขนาด 512x512
+                    ctx512.clearRect(0, 0, 512, 512);
+                    ctx512.drawImage(img, 0, 0, 512, 512);
+
+                    // แปลง Canvas เป็น Data URL (PNG)
+                    const dataUrl192 = canvas192.toDataURL('image/png');
+                    const dataUrl512 = canvas512.toDataURL('image/png');
+
+                    // ตั้งค่าให้ปุ่มดาวน์โหลด
+                    download192.href = dataUrl192;
+                    download192.download = 'icon-192.png';
+                    
+                    download512.href = dataUrl512;
+                    download512.download = 'icon-512.png';
+
+                    // แสดงภาพตัวอย่างและปุ่มดาวน์โหลด
+                    imagePreview.src = event.target.result;
+                    previewSection.classList.remove('hidden');
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(file);
+        });
+    </script>
+</body>
+</html>
