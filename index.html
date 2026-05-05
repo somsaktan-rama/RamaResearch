@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.33</title>
+    <title>Research Rama Tracker v2.34</title>
     
-    <!-- 🌟 โค้ดส่วน PWA (ทำให้เป็นแอปเต็มจอ) 🌟 -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0d6efd">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -41,9 +40,8 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary fw-bold">ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.33</h3>
+    <h3 class="text-center mb-4 text-primary fw-bold">ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.34</h3>
 
-    <!-- 1. ส่วนล็อกอิน -->
     <div id="login-section" class="card shadow-sm p-4 mx-auto" style="max-width: 400px;">
         <div class="text-center mb-3">
             <span id="login-status" class="text-warning fw-bold">กำลังเชื่อมต่อระบบ LINE...</span>
@@ -59,14 +57,12 @@
             <a href="summary.html" target="_blank" class="btn btn-outline-secondary w-100 fw-bold">📈 ดูสรุปภาระงานวิจัย (Summary)</a>
         </div>
 
-        <!-- 🌟 คำแนะนำการติดตั้ง PWA สำหรับ iPhone 🌟 -->
         <div class="mt-4 p-3 bg-light border border-secondary border-opacity-25 rounded text-secondary small text-start shadow-sm">
             💡 <b>สำหรับผู้ใช้ iPhone/iPad:</b><br>
             สามารถกดปุ่ม <kbd>Share</kbd> (สี่เหลี่ยมลูกศรชี้ขึ้น) ด้านล่างจอ แล้วเลือก <b>'Add to Home Screen'</b> เพื่อติดตั้งระบบเป็นแอปพลิเคชันได้
         </div>
     </div>
 
-    <!-- 2. ส่วนแอปพลิเคชัน -->
     <div id="app-section" style="display:none;">
         <div class="alert alert-info py-2 mb-4 shadow-sm d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span>👤 <span id="display-username" class="fw-bold text-primary"></span></span>
@@ -158,6 +154,7 @@
     let pendingFiles = {}; 
     let currentPerms = {}; 
     
+    // 🌟 แก้ไข Manu_link เป็น manu_link ตามโครงสร้าง Database ของคุณ 🌟
     const progressSteps = [
         { key: 'protocol_draft', label: 'Protocol Draft', role: 'MR', hasFile: 'draft_link' },
         { key: 'MS_protocol_draft', label: 'MS Protocol Draft', role: 'MS' },
@@ -176,7 +173,7 @@
         { key: 'MS_manu_submis', label: 'MS Manuscript Submission', role: 'MS' },
         { key: 'manu_revise', label: 'Manuscript Revise', role: 'MR' },
         { key: 'MS_manu_revise', label: 'MS Manuscript Revise', role: 'MS' },
-        { key: 'manu_accept', label: 'Manuscript Accept', role: 'MR', hasFile: 'Manu_link' }, 
+        { key: 'manu_accept', label: 'Manuscript Accept', role: 'MR', hasFile: 'manu_link' }, 
         { key: 'MS_manu_accept', label: 'MS Final Accept', role: 'MS' }
     ];
 
@@ -651,10 +648,20 @@
             if (!payload.main_research) payload.main_research = currentData.main_research;
             payload.other_research = currentData.other_research.join('\n');
             payload.other_staff = currentData.other_staff.join('\n');
+            
+            // 🌟 เสริมเกราะป้องกัน: ส่งข้อมูล Base64 ครอบคลุมทุกรูปแบบ (กันหลังบ้านหาไม่เจอ) 🌟
             payload.draftLinkBase64 = pendingFiles['protocol_draft'] || null;
+            payload.draft_linkBase64 = pendingFiles['protocol_draft'] || null;
+
             payload.ecLinkBase64 = pendingFiles['EC_approve'] || null;
+            payload.EC_linkBase64 = pendingFiles['EC_approve'] || null;
+
             payload.manuDraftBase64 = pendingFiles['manu_draft'] || null;
+            payload.manu_draft_linkBase64 = pendingFiles['manu_draft'] || null;
+
             payload.manuLinkBase64 = pendingFiles['manu_accept'] || null;
+            payload.manu_linkBase64 = pendingFiles['manu_accept'] || null;
+            payload.Manu_linkBase64 = pendingFiles['manu_accept'] || null;
 
             const resp = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'saveResearch', payload: payload }) });
             const res = await resp.json();
@@ -665,7 +672,7 @@
     }
 
     // ==========================================
-    // 📊 Dashboard Logic
+    // 📊 Dashboard Logic (Synchronized Sort)
     // ==========================================
     function formatList(rawString) {
         if (!rawString) return '<span class="text-muted small">-</span>';
@@ -699,6 +706,8 @@
 
                 const isMR = isSameID(currentUser.id, dbMR);
                 const isMS = isSameID(currentUser.id, dbMS);
+                const isOR = rawOR.includes(myName);
+                const isOS = rawOS.includes(myName);
 
                 res.isMyActionRequired = false;
                 res.actionableLabel = "";
@@ -785,7 +794,6 @@
     }
 </script>
 
-<!-- 🌟 ระบบ Service Worker สำหรับ PWA 🌟 -->
 <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
