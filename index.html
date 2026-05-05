@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.35</title>
+    <title>Research Rama Tracker v2.36</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0d6efd">
@@ -40,7 +40,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary fw-bold">ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.35</h3>
+    <h3 class="text-center mb-4 text-primary fw-bold">ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.36</h3>
 
     <div id="login-section" class="card shadow-sm p-4 mx-auto" style="max-width: 400px;">
         <div class="text-center mb-3">
@@ -285,7 +285,6 @@
                             let step = progressSteps[i];
                             let val = getSafeData(res, step.key);
                             
-                            // 🌟 แก้ไขให้เช็คคิวของใครของมันอย่างเข้มงวด เพื่อให้ Flag เด้งถูกคน 🌟
                             let isMyStrictRole = (step.role === 'MR' && res.isMR) || (step.role === 'MS' && res.isMS);
 
                             if (!val) {
@@ -324,6 +323,10 @@
 
                 document.getElementById('login-section').style.display = 'none';
                 document.getElementById('app-section').style.display = 'block';
+                
+                // 🌟 ปิดฟอร์มและล้างข้อมูลเก่าออกจากหน้าจอทันทีเมื่อ Refresh 🌟
+                closeForm();
+
                 Swal.close();
             }).catch(e => Swal.fire('Error', 'เชื่อมต่อล้มเหลว', 'error'));
     }
@@ -502,7 +505,6 @@
             const val = getSafeData(currentData, step.key);
             let isMyRole = (step.role === 'MR' && currentPerms.isMR) || (step.role === 'MS' && currentPerms.isMS);
             
-            // 🌟 แก้ไข: ถอด manu_draft ออกจาก MS Bypass เพื่อให้ MR เป็นคนอัปโหลดเท่านั้น
             const msEditableSteps = ['EC_approve', 'manu_accept', 'presentation'];
             if (currentPerms.isMS && msEditableSteps.includes(step.key)) isMyRole = true;
 
@@ -674,7 +676,7 @@
     }
 
     // ==========================================
-    // 📊 Dashboard Logic (Strict Flagging)
+    // 📊 Dashboard Logic
     // ==========================================
     function formatList(rawString) {
         if (!rawString) return '<span class="text-muted small">-</span>';
@@ -721,7 +723,6 @@
                         let step = progressSteps[i];
                         let val = getSafeData(res, step.key);
                         
-                        // 🌟 แก้ไข: Flag 🚩 จะเด้งเตือนเฉพาะเมื่อเป็นหน้าที่ของคนๆ นั้นจริงๆ เท่านั้น
                         let isMyStrictRole = (step.role === 'MR' && isMR) || (step.role === 'MS' && isMS);
 
                         if (!val) {
