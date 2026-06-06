@@ -3,59 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SkinRama Research Dashboard</title>
+    <title>SkinRama Research Dashboard - Filtered</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { background-color: #f1f5f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .dashboard-card { border: none; border-radius: 12px; transition: transform 0.2s, box-shadow 0.2s; }
         .dashboard-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.08) !important; }
-        
         .role-title { font-size: 0.8rem; color: #6c757d; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; }
         .name-list { font-size: 0.9rem; line-height: 1.4; color: #495057; }
-        
-        /* สไตล์สำหรับกล่องความคืบหน้า */
         .step-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 15px; }
-        .step-box { 
-            padding: 5px 10px; 
-            border-radius: 6px; 
-            font-size: 0.75rem; 
-            font-weight: 600;
-            background-color: #e9ecef; 
-            color: #adb5bd; 
-            border: 1px solid #dee2e6;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .step-box.done { 
-            background-color: #d1e7dd; 
-            color: #0f5132; 
-            border-color: #badbcc; 
-        }
+        .step-box { padding: 5px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; background-color: #e9ecef; color: #adb5bd; border: 1px solid #dee2e6; display: flex; align-items: center; gap: 4px; }
+        .step-box.done { background-color: #d1e7dd; color: #0f5132; border-color: #badbcc; }
         .step-box.done::before { content: '✔️'; }
         .step-box.pending::before { content: '⏳'; opacity: 0.5; }
-
-        /* เอฟเฟกต์กระพริบเตือนกรณีหมดอายุแล้ว */
         .blink-alert { animation: blinker 1.5s linear infinite; }
         @keyframes blinker { 50% { opacity: 0.4; } }
+        
+        /* สไตล์ส่วน Filter */
+        .filter-section { background: white; border-radius: 12px; padding: 20px; margin-bottom: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
     </style>
 </head>
 <body>
 
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="text-primary fw-bold mb-0">📊 ภาพรวมงานวิจัยหน่วยโรคผิวหนัง 1.02 (เรียงตามความคืบหน้า)</h3>
+        <h3 class="text-primary fw-bold mb-0">📊 Dashboard งานวิจัยผิวหนัง (แยกตามรายชื่อ)</h3>
         <button class="btn btn-outline-primary shadow-sm" onclick="loadDashboard()">🔄 รีเฟรชข้อมูล</button>
     </div>
 
-    <div id="dashboard-container" class="row g-4">
+    <div class="filter-section shadow-sm">
+        <div class="row g-3">
+            <div class="col-md-5">
+                <label class="form-label fw-bold small text-muted">👨‍⚕️ กรองตามผู้วิจัยหลัก (MR)</label>
+                <select id="filter-mr" class="form-select border-primary" onchange="applyFilters()">
+                    <option value="">-- ทั้งหมด (ทุก MR) --</option>
+                </select>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label fw-bold small text-muted">👨‍🏫 กรองตามอาจารย์ที่ปรึกษา (MS)</label>
+                <select id="filter-ms" class="form-select border-success" onchange="applyFilters()">
+                    <option value="">-- ทั้งหมด (ทุก MS) --</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-secondary w-100" onclick="resetFilters()">ล้างค่า</button>
+            </div>
         </div>
+    </div>
+
+    <div id="dashboard-container" class="row g-4"></div>
 </div>
 
 <script>
-    // 🚨 ใส่ URL ของ Google Apps Script ของคุณตรงนี้
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbyPuWxqyYQ7ulh0Dyb-fgc29FbtYfoSHtu9MgN-Rih9PKKshHDuiDncC6qZJe6OoGU/exec';
+    
+    let allResearches = []; // เก็บข้อมูลดิบทั้งหมด
 
     const trackingSteps = [
         { key: 'protocol_draft', label: 'Protocol Draft' },
@@ -84,137 +87,133 @@
         return rawString.toString().split('\n').filter(n => n.trim() !== '').join('<br>');
     }
 
-    // 🌟 ระบบคำนวณและสร้าง Tag เตือนวันหมดอายุ EC (แสดงเป็นจำนวนวัน)
     function generateECTag(expireDateStr) {
         if (!expireDateStr || expireDateStr.trim() === '') return '';
-
         const expireDate = new Date(expireDateStr);
         if (isNaN(expireDate.getTime())) return '';
-
         const today = new Date();
         today.setHours(0, 0, 0, 0); 
         expireDate.setHours(0, 0, 0, 0);
-
-        const diffTime = expireDate - today;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-
-        if (diffDays < 0) {
-            return `<span class="badge bg-danger ms-2 blink-alert shadow-sm">⚠️ หมดอายุแล้ว (${Math.abs(diffDays)} วัน)</span>`;
-        } else if (diffDays <= 30) {
-            return `<span class="badge bg-danger ms-2 shadow-sm">⚠️ เหลือ ${diffDays} วัน</span>`;
-        } else if (diffDays <= 90) {
-            return `<span class="badge bg-warning text-dark ms-2 shadow-sm">⏳ เหลือ ${diffDays} วัน</span>`;
-        }
-        
-        return `<span class="badge bg-success ms-2 shadow-sm">✅ เหลือ ${diffDays} วัน</span>`;
+        const diffDays = Math.ceil((expireDate - today) / (1000 * 60 * 60 * 24)); 
+        if (diffDays < 0) return `<span class="badge bg-danger ms-2 blink-alert">⚠️ หมดอายุแล้ว</span>`;
+        if (diffDays <= 30) return `<span class="badge bg-danger ms-2">⚠️ เหลือ ${diffDays} วัน</span>`;
+        if (diffDays <= 90) return `<span class="badge bg-warning text-dark ms-2">⏳ เหลือ ${diffDays} วัน</span>`;
+        return `<span class="badge bg-success ms-2">✅ ปกติ</span>`;
     }
 
     function loadDashboard() {
         const container = document.getElementById('dashboard-container');
-        container.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">กำลังโหลดและจัดเรียงข้อมูล...</p></div>';
+        container.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">กำลังดึงข้อมูล...</p></div>';
 
         fetch(`${GAS_URL}?action=getAllResearch`)
             .then(res => res.json())
             .then(data => {
                 if(data.error) return Swal.fire('Error', data.error, 'error');
                 
-                container.innerHTML = '';
+                // กรองเฉพาะงานที่ยังไม่จบ (ไม่มี MS_manu_accept)
+                allResearches = data.researches.filter(res => getSafeData(res, 'MS_manu_accept') === "");
                 
-                // 1. กรองเฉพาะงานที่ยังไม่เสร็จสิ้น (ยังไม่มี MS_manu_accept)
-                let activeResearches = data.researches.filter(res => getSafeData(res, 'MS_manu_accept') === "");
-
-                // กรณีที่ไม่มีงานค้างอยู่เลย
-                if (activeResearches.length === 0) {
-                    container.innerHTML = '<div class="col-12 text-center text-success py-5"><h5>🎉 ไม่มีงานวิจัยที่อยู่ระหว่างดำเนินการ</h5><p class="text-muted">งานวิจัยทั้งหมดได้รับการอนุมัติเรียบร้อยแล้ว</p></div>';
-                    return;
-                }
-
-                // 🌟 2. คำนวณ "คะแนนความคืบหน้า" ให้แต่ละงาน
-                activeResearches.forEach(res => {
+                // คำนวณ Progress Score สำหรับการจัดเรียง
+                allResearches.forEach(res => {
                     let score = 0;
-                    trackingSteps.forEach(step => {
-                        if (getSafeData(res, step.key) !== "") {
-                            score++; // ถ้าขั้นตอนไหนมีข้อมูล (ทำแล้ว) จะบวก 1 คะแนน
-                        }
-                    });
-                    res.progressScore = score; // เก็บตะแนนไว้ใน Object
+                    trackingSteps.forEach(step => { if (getSafeData(res, step.key) !== "") score++; });
+                    res.progressScore = score;
                 });
 
-                // 🌟 3. จัดเรียงข้อมูลจากคะแนนมากไปน้อย (ความคืบหน้ามากสุดอยู่บน)
-                activeResearches.sort((a, b) => b.progressScore - a.progressScore);
+                // จัดเรียงเบื้องต้น: คืบหน้ามากที่สุดขึ้นก่อน
+                allResearches.sort((a, b) => b.progressScore - a.progressScore);
 
-                // 4. นำข้อมูลที่เรียงแล้วมาสร้างการ์ดแสดงผล
-                activeResearches.forEach(res => {
-                    const title = getSafeData(res, 'Title') || 'ไม่ได้ระบุชื่อเรื่อง';
-                    const mrName = getSafeData(res, 'main_research') || getSafeData(res, 'ramaID_MR') || '-';
-                    const msName = getSafeData(res, 'main_staff') || getSafeData(res, 'ramaID_MS') || '-';
-                    const orList = formatList(getSafeData(res, 'other_research'));
-                    const osList = formatList(getSafeData(res, 'other_staff'));
+                populateFilterOptions(); // สร้างรายชื่อใน Dropdown
+                renderCards(allResearches); // แสดงผลครั้งแรก
+            }).catch(e => {
+                container.innerHTML = `<div class="col-12 text-center text-danger py-5">เกิดข้อผิดพลาด: ${e.message}</div>`;
+            });
+    }
 
-                    const ecExpireDate = getSafeData(res, 'EC_expire_date');
-                    const ecAlertTag = generateECTag(ecExpireDate);
+    // ฟังก์ชันสร้างรายชื่อใน Dropdown
+    function populateFilterOptions() {
+        const mrSelect = document.getElementById('filter-mr');
+        const msSelect = document.getElementById('filter-ms');
+        
+        // ดึงรายชื่อ MR และ MS ที่ไม่ซ้ำกัน
+        const mrNames = [...new Set(allResearches.map(r => getSafeData(r, 'main_research') || getSafeData(r, 'ramaID_MR')).filter(n => n))].sort();
+        const msNames = [...new Set(allResearches.map(r => getSafeData(r, 'main_staff') || getSafeData(r, 'ramaID_MS')).filter(n => n))].sort();
 
-                    // สร้างกล่องความคืบหน้า (Progress Blocks)
-                    let stepsHtml = '';
-                    trackingSteps.forEach(step => {
-                        const isDone = getSafeData(res, step.key) !== "";
-                        const statusClass = isDone ? 'done' : 'pending';
-                        stepsHtml += `<div class="step-box ${statusClass}">${step.label}</div>`;
-                    });
+        mrSelect.innerHTML = '<option value="">-- ทั้งหมด (ทุก MR) --</option>';
+        mrNames.forEach(name => mrSelect.add(new Option(name, name)));
 
-                    // คำนวณเปอร์เซ็นต์เพื่อโชว์ความคืบหน้า (เสริมให้ดูง่ายขึ้น)
-                    const percentComplete = Math.round((res.progressScore / trackingSteps.length) * 100);
+        msSelect.innerHTML = '<option value="">-- ทั้งหมด (ทุก MS) --</option>';
+        msNames.forEach(name => msSelect.add(new Option(name, name)));
+    }
 
-                    const cardHtml = `
-                    <div class="col-md-6 col-lg-12">
-                        <div class="card dashboard-card shadow-sm h-100 border-start border-4 border-primary">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start border-bottom pb-2 mb-3">
-                                    <h5 class="card-title text-dark fw-bold mb-0">📄 ${title} ${ecAlertTag}</h5>
-                                    <span class="badge bg-primary rounded-pill">คืบหน้า ${percentComplete}%</span>
-                                </div>
-                                
-                                <div class="row gx-4 gy-3">
-                                    <div class="col-sm-6">
-                                        <div class="p-3 bg-light rounded border h-100">
-                                            <div class="mb-2">
-                                                <div class="role-title">ผู้วิจัยหลัก (Main Research)</div>
-                                                <span class="badge bg-primary text-white" style="font-size:0.9rem;">${mrName}</span>
-                                            </div>
-                                            <div>
-                                                <div class="role-title">แพทย์ร่วม (Other Research)</div>
-                                                <div class="name-list mt-1">${orList}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="col-sm-6">
-                                        <div class="p-3 bg-light rounded border h-100">
-                                            <div class="mb-2">
-                                                <div class="role-title">อ.ที่ปรึกษาหลัก (Main Staff)</div>
-                                                <span class="badge bg-success text-white" style="font-size:0.9rem;">${msName}</span>
-                                            </div>
-                                            <div>
-                                                <div class="role-title">อาจารย์ร่วม (Other Staff)</div>
-                                                <div class="name-list mt-1">${osList}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+    // ฟังก์ชัน Filter และแสดงผลใหม่
+    function applyFilters() {
+        const mrValue = document.getElementById('filter-mr').value;
+        const msValue = document.getElementById('filter-ms').value;
 
-                                <div class="step-container mt-3 pt-3 border-top">
-                                    ${stepsHtml}
-                                </div>
+        const filtered = allResearches.filter(res => {
+            const mrMatch = mrValue === "" || (getSafeData(res, 'main_research') === mrValue || getSafeData(res, 'ramaID_MR') === mrValue);
+            const msMatch = msValue === "" || (getSafeData(res, 'main_staff') === msValue || getSafeData(res, 'ramaID_MS') === msValue);
+            return mrMatch && msMatch;
+        });
+
+        renderCards(filtered);
+    }
+
+    function resetFilters() {
+        document.getElementById('filter-mr').value = "";
+        document.getElementById('filter-ms').value = "";
+        renderCards(allResearches);
+    }
+
+    // ฟังก์ชัน Render การ์ด (แยกออกมาเพื่อให้เรียกซ้ำได้)
+    function renderCards(dataList) {
+        const container = document.getElementById('dashboard-container');
+        container.innerHTML = '';
+
+        if (dataList.length === 0) {
+            container.innerHTML = '<div class="col-12 text-center py-5 text-muted"><h5>ไม่พบข้อมูลงานวิจัยที่ตรงกับเงื่อนไข</h5></div>';
+            return;
+        }
+
+        dataList.forEach(res => {
+            const title = getSafeData(res, 'Title') || 'ไม่ระบุชื่อเรื่อง';
+            const mrName = getSafeData(res, 'main_research') || getSafeData(res, 'ramaID_MR') || '-';
+            const msName = getSafeData(res, 'main_staff') || getSafeData(res, 'ramaID_MS') || '-';
+            const orList = formatList(getSafeData(res, 'other_research'));
+            const osList = formatList(getSafeData(res, 'other_staff'));
+            const ecAlert = generateECTag(getSafeData(res, 'EC_expire_date'));
+            const percent = Math.round((res.progressScore / trackingSteps.length) * 100);
+
+            let stepsHtml = '';
+            trackingSteps.forEach(step => {
+                const isDone = getSafeData(res, step.key) !== "";
+                stepsHtml += `<div class="step-box ${isDone ? 'done' : 'pending'}">${step.label}</div>`;
+            });
+
+            container.innerHTML += `
+            <div class="col-lg-12">
+                <div class="card dashboard-card shadow-sm border-start border-4 border-primary">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start border-bottom pb-2 mb-3">
+                            <h5 class="card-title text-dark fw-bold mb-0">📄 ${title} ${ecAlert}</h5>
+                            <span class="badge bg-primary rounded-pill">คืบหน้า ${percent}%</span>
+                        </div>
+                        <div class="row gx-4">
+                            <div class="col-sm-6 border-end">
+                                <div class="role-title">MR: ${mrName}</div>
+                                <div class="name-list mt-1"><b>ร่วม (OR):</b><br>${orList}</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="role-title">MS: ${msName}</div>
+                                <div class="name-list mt-1"><b>ร่วม (OS):</b><br>${osList}</div>
                             </div>
                         </div>
-                    </div>`;
-                    
-                    container.innerHTML += cardHtml;
-                });
-
-            }).catch(e => {
-                container.innerHTML = `<div class="col-12 text-center text-danger py-5">เกิดข้อผิดพลาดในการโหลดข้อมูล: ${e.message}</div>`;
-            });
+                        <div class="step-container border-top pt-3 mt-3">${stepsHtml}</div>
+                    </div>
+                </div>
+            </div>`;
+        });
     }
 </script>
 </body>
