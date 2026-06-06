@@ -99,10 +99,10 @@
         <div class="row align-items-center">
             <div class="col-md-9">
                 <h1><i class="fa-solid fa-book-open me-2"></i> คู่มืออ้างอิงและเอกสารระบบ (README)</h1>
-                <p class="lead mb-0">ระบบติดตามงานวิจัยหน่วยโรคผิวหนัง รามาธิบดี (Research Rama Tracker v2.37)</p>
+                <p class="lead mb-0">ระบบติดตามงานวิจัยหน่วยโรคผิวหนัง รามาธิบดี (Research Rama Tracker v2.38)</p>
             </div>
             <div class="col-md-3 text-md-end mt-3 mt-md-0">
-                <span class="badge bg-light text-primary fs-6 px-3 py-2 border">Version 2.37</span>
+                <span class="badge bg-light text-primary fs-6 px-3 py-2 border">Version 2.38</span>
             </div>
         </div>
     </div>
@@ -295,7 +295,7 @@
                         <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#accordionExample">
                             <div class="accordion-body">
                                 <strong>สาเหตุ:</strong> เกิดจากอาจารย์แพทย์ท่านนั้นๆ มีการเปลี่ยนสลับบัญชี LINE หรือเคยใช้ LINE Account อื่นล็อกอินค้างไว้ในระบบเป็นครั้งแรก<br>
-                                <strong>วิธีแก้ไขสำหรับผู้ดูแลระบบ (Admin):</strong> ให้เปิดไฟล์ฐานข้อมูล Google Sheets เข้าไปที่ชีตชื่อ <code>staff</code> ค้นหาแถวรายชื่อของอาจารย์ท่านนั้น แล้วทำการลบข้อมูลในช่องคอลัมน์ <code>line_uid</code> และ <code>line_displayname</code> ให้เป็นช่องว่างว่างๆ จากนั้นแจ้งให้อาารย์ล็อกอินใหม่อีกครั้งเพื่อผูกไอดีใหม่
+                                <strong>วิธีแก้ไขสำหรับผู้ดูแลระบบ (Admin):</strong> ให้เปิดไฟล์ฐานข้อมูล Google Sheets เข้าไปที่ชีตชื่อ <code>staff</code> ค้นหาแถวรายชื่อของอาจารย์ท่านนั้น แล้วทำการลบข้อมูลในช่องคอลัมน์ <code>line_uid</code> และ <code>line_displayname</code> ให้เป็นช่องว่างว่างๆ จากนั้นแจ้งให้อาจารย์ล็อกอินใหม่อีกครั้งเพื่อผูกไอดีใหม่
                             </div>
                         </div>
                     </div>
@@ -329,7 +329,7 @@
 
                 <div class="mt-4 p-3 bg-light border border-secondary border-opacity-25 rounded">
                     <h5><i class="fa-solid fa-user-plus text-success"></i> การเพิ่มรายชื่อบุคลากรใหม่เข้าระบบ (Maintenance)</h5>
-                    <p class="mb-0 small text-muted">ผู้ดูแลระบบไม่จำเป็นต้องเข้ามาแก้ไขโค้ดโปรแกรมแต่อย่างใด เพียงแค่เปิด Google Sheets ชีต <code>staff</code> แล้วทำการกรอกข้อมูลพนักงานใหม่ลงไปในแถวถัดไป โดยระบุ <code>ramaID</code>, <code>name</code> และช่อง <code>group</code> ให้มีคำระบุประเภทชัดเจน (เช่นมีคำว่า "อาจารย์" หรือกลุ่ม "แพทย์ประจำบ้าน") ระบบหน้าบ้านจะทำการดึงข้อมูลไปแสดงผลในตัวเลือกและคัดแยกสิทธิ์ให้โดยอัตโนมัติในการล็อกอินครั้งถัดไป</p>
+                    <p class="mb-0 small text-muted">ผู้ดูแลระบบไม่จำเป็นต้องเข้ามาแก้ไขโค้ดโปรแกรมแต่อย่างใด เพียงแค่เปิด Google Sheets ชีต <code>staff</code> แล้วทำการกรอกข้อมูลแพทย์ใหม่ลงไปในแถวถัดไป โดยระบุ <code>ramaID</code>, <code>name</code> และช่อง <code>group</code> ให้มีคำระบุประเภทชัดเจน (เช่นมีคำว่า "อาจารย์" หรือกลุ่ม "แพทย์ประจำบ้าน") ระบบหน้าบ้านจะทำการดึงข้อมูลไปแสดงผลในตัวเลือกและคัดแยกสิทธิ์ให้โดยอัตโนมัติในการล็อกอินครั้งถัดไป</p>
                 </div>
             </div>
 
