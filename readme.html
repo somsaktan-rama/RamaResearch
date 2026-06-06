@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>คู่มือการใช้งานระบบ Research Rama Tracker 2.37</title>
+    <title>คู่มือการใช้งานระบบ - Research Rama Tracker</title>
     <!-- Bootstrap 5 CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- FontAwesome for Icons -->
@@ -99,10 +99,10 @@
         <div class="row align-items-center">
             <div class="col-md-9">
                 <h1><i class="fa-solid fa-book-open me-2"></i> คู่มืออ้างอิงและเอกสารระบบ (README)</h1>
-                <p class="lead mb-0">ระบบติดตามงานวิจัยหน่วยโรคผิวหนัง รามาธิบดี (Research Rama Tracker v2.36)</p>
+                <p class="lead mb-0">ระบบติดตามงานวิจัยหน่วยโรคผิวหนัง รามาธิบดี (Research Rama Tracker v2.37)</p>
             </div>
             <div class="col-md-3 text-md-end mt-3 mt-md-0">
-                <span class="badge bg-light text-primary fs-6 px-3 py-2 border">Version 2.36</span>
+                <span class="badge bg-light text-primary fs-6 px-3 py-2 border">Version 2.37</span>
             </div>
         </div>
     </div>
@@ -130,6 +130,7 @@
                 <p><strong>ประโยชน์และฟังก์ชันเด่นของระบบ:</strong></p>
                 <ul>
                     <li><strong>Real-time Tracking:</strong> ติดตามสเตตัสงานวิจัยได้อย่างละเอียดถึง 19 ขั้นตอนย่อย ตั้งแต่การยกร่าง Protocol ไปจนถึงขั้น Manuscriptได้รับการตอบรับ (Accept)</li>
+                    <li><strong>Real-time Dashboard Filter:</strong> ระบบแสดงภาพรวมที่มาพร้อมกับฟิลเตอร์คัดกรองข้อมูลตามรายชื่อผู้วิจัยหลัก (MR) และอาจารย์ที่ปรึกษา (MS) แบบทันทีโดยไม่ต้องโหลดหน้าเว็บใหม่</li>
                     <li><strong>Role-Based Access Control (RBAC):</strong> แยกระดับสิทธิ์และหน้าที่ชัดเจนระหว่าง ผู้วิจัยหลัก (Main Research), อาจารย์ที่ปรึกษาหลัก (Main Staff) และผู้ร่วมวิจัย (Other)</li>
                     <li><strong>LINE Login Integration (LIFF):</strong> เสริมความปลอดภัยขั้นสูงสำหรับกลุ่มอาจารย์แพทย์ ป้องกันการเข้าถึงข้อมูลและการอนุมัติโดยไม่ได้รับอนุญาต</li>
                     <li><strong>Automated Cloud Storage:</strong> ระบบแปลงเอกสาร PDF เป็น Base64 อัปโหลดขึ้น Google Drive ของหน่วยงานโดยอัตโนมัติ และบันทึก URL ลิงก์กลับลงฐานข้อมูลอย่างเป็นระบบ</li>
@@ -209,10 +210,11 @@
                     </table>
                 </div>
 
-                <h5 class="mt-4 text-secondary">สคริปต์ฝั่งหน้าเว็บ (index.html)</h5>
+                <h5 class="mt-4 text-secondary">สคริปต์ฝั่งหน้าเว็บ (index.html และ dashboard.html)</h5>
                 <ul>
                     <li><strong>ระบบตรวจสอบลำดับขั้นตอน (Step Unlocking):</strong> ฟังก์ชัน <code>renderProgress()</code> ควบคุมการปิดกั้น/เปิดปุ่มแสตมป์เวลา โดยจะเช็คค่า <code>prevOk</code> หากขั้นตอนก่อนหน้ายังไม่มีข้อมูลแสตมป์เวลา ปุ่มในขั้นตอนถัดไปจะถูกเซ็ตสถานะเป็น <code>disabled</code> และเปลี่ยนคลาสเป็น <code>step-locked</code> ทันที</li>
                     <li><strong>สิทธิ์การแสดงผล (Permission Mapping):</strong> ระบบจะคำนวณสิทธิ์ผู้ใช้งาน หากผู้ใช้ปัจจุบันไม่ได้เป็นผู้วิจัยหลัก (isMR) และไม่ได้เป็นอาจารย์ที่ปรึกษาหลัก (isMS) ตัวแปร <code>isViewer</code> จะมีค่าเป็น True ส่งผลให้ซ่อนปุ่มบันทึก ปุ่มเพิ่มรายชื่อ และซ่อนอินพุตสำหรับอัปโหลดไฟล์ทันที</li>
+                    <li><strong>ระบบคัดกรองแดชบอร์ด (Dashboard Filtering):</strong> หน้า Dashboard จะเก็บข้อมูลงานวิจัยทั้งหมดไว้ในหน่วยความจำชั่วคราว (<code>allResearches</code>) เพื่อรองรับการคัดกรองข้อมูลฝั่งผู้ใช้งาน (Client-side filtering) ทำให้สามารถเลือกดูงานวิจัยตามชื่อ MR และ MS ได้ในทันทีโดยไม่ต้องดึงข้อมูลจากฐานข้อมูลใหม่</li>
                 </ul>
             </div>
 
@@ -265,6 +267,17 @@
                 <div class="mb-4">
                     <span class="step-indicator">5</span> <strong>บันทึกข้อมูลขึ้นระบบคลาวด์</strong>
                     <p class="ms-4 text-muted">ตรวจสอบข้อมูลให้แน่ใจแล้วกดปุ่มสีเขียว <code>💾 บันทึกข้อมูล</code> ด้านล่างสุด ระบบจะซิงก์ข้อมูลอัปโหลดไฟล์ขึ้น Google Drive และบันทึกประวัติลง Google Sheets จนเสร็จสิ้น</p>
+                </div>
+
+                <div class="mb-4">
+                    <span class="step-indicator">6</span> <strong>การดูภาพรวมและคัดกรองข้อมูล (Dashboard & Filtering)</strong>
+                    <p class="ms-4 text-muted">เมื่อเข้าสู่หน้า Dashboard คุณสามารถใช้เครื่องมือ <strong>ตัวกรอง (Filter)</strong> ด้านบนเพื่อค้นหางานวิจัยเฉพาะเจาะจงได้:
+                    <ul class="ms-5 text-muted small">
+                        <li><strong>กรองตาม MR / MS:</strong> เลือกรายชื่อจาก Dropdown เพื่อดูเฉพาะงานวิจัยที่แพทย์หรืออาจารย์ท่านนั้นรับผิดชอบเป็นหลัก</li>
+                        <li><strong>ตรรกะการกรองแบบรวม (AND Logic):</strong> หากเลือกทั้ง MR และ MS พร้อมกัน ระบบจะแสดงเฉพาะงานวิจัยที่ตรงกับทั้ง 2 ชื่อเท่านั้น</li>
+                        <li><strong>ล้างค่า (Reset):</strong> กดปุ่ม "ล้างค่า" เพื่อกลับไปดูรายการงานวิจัยทั้งหมดดังเดิม</li>
+                    </ul>
+                    </p>
                 </div>
             </div>
 
