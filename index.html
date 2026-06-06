@@ -708,15 +708,19 @@
     function closeDashboard() { document.getElementById('dashboard-view').style.display = 'none'; document.getElementById('main-view').style.display = 'block'; }
     
 // ==========================================
-    // 📊 Dashboard Logic (มีระบบคัดกรอง Filter)
+    // 📊 Dashboard Logic (มีระบบคัดกรอง Filter และแสดง Group ของ MR)
     // ==========================================
-    let globalActiveDashboardData = []; // เก็บข้อมูลไว้สำหรับ Filter หน้าจอ
+    let globalActiveDashboardData = []; // เก็บข้อมูลงานวิจัย
+    let globalDoctorsList = []; // 🌟 เก็บข้อมูลกลุ่มรายชื่อแพทย์ (ดึงจากชีต staff)
 
     function loadDashboardData() {
         const container = document.getElementById('dashboard-container');
         container.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">กำลังโหลดและตรวจสอบสถานะการทำงาน...</p></div>';
         
         fetch(`${GAS_URL}?action=getAllResearch`).then(res => res.json()).then(data => {
+            // 🌟 นำข้อมูลบุคลากรมาเก็บไว้เพื่อใช้หา Group
+            globalDoctorsList = data.doctors || []; 
+
             let active = data.researches.filter(res => getSafeData(res, 'MS_manu_accept') === "");
             if (active.length === 0) {
                 container.innerHTML = '<div class="col-12 text-center text-success py-5"><h5>🎉 ไม่มีงานวิจัยที่อยู่ระหว่างดำเนินการ</h5></div>';
@@ -768,7 +772,6 @@
                 return b.score - a.score;
             });
 
-            // เก็บเข้าตัวแปรส่วนกลาง และเรียกฟังก์ชันสร้างการ์ด
             globalActiveDashboardData = active;
             populateDashboardFilterOptions();
             renderDashboardCards(globalActiveDashboardData);
@@ -780,12 +783,19 @@
         const mrSelect = document.getElementById('db-filter-mr');
         const msSelect = document.getElementById('db-filter-ms');
         
-        // กรองหารายชื่อ MR และ MS ที่ไม่ซ้ำกันและไม่ว่างเปล่า
+        // กรองหารายชื่อ MR และ MS ที่ไม่ซ้ำกัน
         const mrNames = [...new Set(globalActiveDashboardData.map(r => getSafeData(r, 'main_research') || getSafeData(r, 'ramaID_MR')).filter(n => n && n !== '-'))].sort();
         const msNames = [...new Set(globalActiveDashboardData.map(r => getSafeData(r, 'main_staff') || getSafeData(r, 'ramaID_MS')).filter(n => n && n !== '-'))].sort();
 
         mrSelect.innerHTML = '<option value="">-- ทั้งหมด (ทุก MR) --</option>';
-        mrNames.forEach(name => mrSelect.add(new Option(name, name)));
+        mrNames.forEach(name => {
+            // 🌟 ค้นหาข้อมูล Group ของรายชื่อนี้จาก globalDoctorsList
+            const docInfo = globalDoctorsList.find(d => d.name === name);
+            const groupText = (docInfo && docInfo.group) ? ` (${docInfo.group})` : '';
+            
+            // นำ name มาต่อกับ groupText เพื่อแสดงผล แต่ value ให้ใช้ name เหมือนเดิมเพื่อใช้ตอน Filter
+            mrSelect.add(new Option(name + groupText, name));
+        });
 
         msSelect.innerHTML = '<option value="">-- ทั้งหมด (ทุก MS) --</option>';
         msNames.forEach(name => msSelect.add(new Option(name, name)));
@@ -803,7 +813,7 @@
             const mrMatch = mrValue === "" || mrNameString === mrValue;
             const msMatch = msValue === "" || msNameString === msValue;
             
-            return mrMatch && msMatch; // ใช้เงื่อนไขแบบ AND (ต้องตรงทั้งคู่)
+            return mrMatch && msMatch;
         });
 
         renderDashboardCards(filteredData);
