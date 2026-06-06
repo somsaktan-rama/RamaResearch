@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Rama Tracker v2.37</title>
+    <title>Research Rama Tracker v2.38</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0d6efd">
@@ -40,7 +40,7 @@
 <body>
 
 <div class="container py-4">
-    <h3 class="text-center mb-4 text-primary fw-bold">ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.37</h3>
+    <h3 class="text-center mb-4 text-primary fw-bold">ติดตามงานวิจัยผิวหนัง รามาธิบดี 2.38</h3>
 
     <div id="login-section" class="card shadow-sm p-4 mx-auto" style="max-width: 400px;">
         <div class="text-center mb-3">
@@ -134,10 +134,30 @@
             </form>
         </div>
 
-        <div id="dashboard-view" style="display:none;">
+<div id="dashboard-view" style="display:none;">
             <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
                 <h4 class="text-primary fw-bold mb-0">📊 ภาพรวมงานวิจัย (Dashboard)</h4>
                 <button class="btn btn-outline-secondary shadow-sm" onclick="closeDashboard()">🔙 กลับไปหน้าจัดการ</button>
+            </div>
+            
+            <div class="card p-3 mb-4 shadow-sm bg-white border-0 rounded-3">
+                <div class="row g-3">
+                    <div class="col-md-5">
+                        <label class="form-label fw-bold small text-muted">👨‍⚕️ กรองตามผู้วิจัยหลัก (MR)</label>
+                        <select id="db-filter-mr" class="form-select border-primary shadow-sm" onchange="applyDashboardFilters()">
+                            <option value="">-- ทั้งหมด (ทุก MR) --</option>
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label fw-bold small text-muted">👨‍🏫 กรองตามอาจารย์ที่ปรึกษา (MS)</label>
+                        <select id="db-filter-ms" class="form-select border-success shadow-sm" onchange="applyDashboardFilters()">
+                            <option value="">-- ทั้งหมด (ทุก MS) --</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="button" class="btn btn-secondary w-100 fw-bold shadow-sm" onclick="resetDashboardFilters()">ล้างค่า</button>
+                    </div>
+                </div>
             </div>
             <div id="dashboard-container" class="row g-4"></div>
         </div>
@@ -687,12 +707,16 @@
     function openDashboard() { document.getElementById('main-view').style.display = 'none'; document.getElementById('dashboard-view').style.display = 'block'; loadDashboardData(); }
     function closeDashboard() { document.getElementById('dashboard-view').style.display = 'none'; document.getElementById('main-view').style.display = 'block'; }
     
+// ==========================================
+    // 📊 Dashboard Logic (มีระบบคัดกรอง Filter)
+    // ==========================================
+    let globalActiveDashboardData = []; // เก็บข้อมูลไว้สำหรับ Filter หน้าจอ
+
     function loadDashboardData() {
         const container = document.getElementById('dashboard-container');
         container.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">กำลังโหลดและตรวจสอบสถานะการทำงาน...</p></div>';
         
         fetch(`${GAS_URL}?action=getAllResearch`).then(res => res.json()).then(data => {
-            container.innerHTML = '';
             let active = data.researches.filter(res => getSafeData(res, 'MS_manu_accept') === "");
             if (active.length === 0) {
                 container.innerHTML = '<div class="col-12 text-center text-success py-5"><h5>🎉 ไม่มีงานวิจัยที่อยู่ระหว่างดำเนินการ</h5></div>';
@@ -725,7 +749,6 @@
                         let val = getSafeData(res, step.key);
                         
                         let isMyStrictRole = (step.role === 'MR' && isMR) || (step.role === 'MS' && isMS);
-
                         if (!val) {
                             if (prevOk && isMyStrictRole) {
                                 res.isMyActionRequired = true;
@@ -736,7 +759,7 @@
                     }
                 }
             });
-
+            
             active.sort((a,b) => {
                 if (a.isMyActionRequired && !b.isMyActionRequired) return -1;
                 if (!a.isMyActionRequired && b.isMyActionRequired) return 1;
@@ -745,55 +768,119 @@
                 return b.score - a.score;
             });
 
-            active.forEach(res => {
-                const title = getSafeData(res, 'Title') || 'ไม่ได้ระบุชื่อเรื่อง';
-                const mrName = getSafeData(res, 'main_research') || getSafeData(res, 'ramaID_MR') || '-';
-                const msName = getSafeData(res, 'main_staff') || getSafeData(res, 'ramaID_MS') || '-';
-                const orList = formatList(getSafeData(res, 'other_research'));
-                const osList = formatList(getSafeData(res, 'other_staff'));
-                const ecTag = generateECTag(getSafeData(res, 'EC_expire_date'));
-                const percentComplete = Math.round((res.score / dashboardSteps.length) * 100);
+            // เก็บเข้าตัวแปรส่วนกลาง และเรียกฟังก์ชันสร้างการ์ด
+            globalActiveDashboardData = active;
+            populateDashboardFilterOptions();
+            renderDashboardCards(globalActiveDashboardData);
+        });
+    }
 
-                let steps = ''; 
-                dashboardSteps.forEach(s => { 
-                    const isDone = getSafeData(res, s.key) !== "";
-                    steps += `<div class="step-box ${isDone ? 'done' : 'pending'}">${s.label}</div>`;
-                });
+    // 1. สร้างตัวเลือกรายชื่อใน Dropdown
+    function populateDashboardFilterOptions() {
+        const mrSelect = document.getElementById('db-filter-mr');
+        const msSelect = document.getElementById('db-filter-ms');
+        
+        // กรองหารายชื่อ MR และ MS ที่ไม่ซ้ำกันและไม่ว่างเปล่า
+        const mrNames = [...new Set(globalActiveDashboardData.map(r => getSafeData(r, 'main_research') || getSafeData(r, 'ramaID_MR')).filter(n => n && n !== '-'))].sort();
+        const msNames = [...new Set(globalActiveDashboardData.map(r => getSafeData(r, 'main_staff') || getSafeData(r, 'ramaID_MS')).filter(n => n && n !== '-'))].sort();
 
-                const actionBadge = res.isMyActionRequired ? `<span class="badge bg-danger blink-alert shadow-sm mt-2" style="font-size: 0.85rem;">🚩 รอคุณดำเนินการ: ${res.actionableLabel}</span>` : '';
-                const borderClass = res.isMyActionRequired ? 'border-danger' : 'border-primary';
+        mrSelect.innerHTML = '<option value="">-- ทั้งหมด (ทุก MR) --</option>';
+        mrNames.forEach(name => mrSelect.add(new Option(name, name)));
 
-                container.innerHTML += `
-                <div class="col-md-6 col-lg-12">
-                    <div class="card dashboard-card shadow-sm h-100 border-start border-4 ${borderClass}">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start border-bottom pb-2 mb-3">
-                                <div>
-                                    <h5 class="card-title text-dark fw-bold mb-0">${res.isMyActionRequired ? '🚩 ' : ''}📄 ${title} ${ecTag}</h5>
-                                    ${actionBadge}
-                                </div>
-                                <span class="badge bg-primary rounded-pill shadow-sm" style="font-size: 0.85rem;">คืบหน้า ${percentComplete}%</span>
-                            </div>
+        msSelect.innerHTML = '<option value="">-- ทั้งหมด (ทุก MS) --</option>';
+        msNames.forEach(name => msSelect.add(new Option(name, name)));
+    }
 
-                            <div class="row gx-4 gy-3">
-                                <div class="col-sm-6">
-                                    <div class="p-3 bg-light rounded border h-100">
-                                        <div class="mb-2"><div class="role-title">ผู้วิจัยหลัก (Main Research)</div><span class="badge bg-primary text-white" style="font-size:0.9rem;">${mrName}</span></div>
-                                        <div><div class="role-title">แพทย์ร่วม (Other Research)</div><div class="name-list mt-1">${orList}</div></div>
-                                    </div>
-                                </div>
-                                <div class="col-sm-6">
-                                    <div class="p-3 bg-light rounded border h-100">
-                                        <div class="mb-2"><div class="role-title">อ.ที่ปรึกษาหลัก (Main Staff)</div><span class="badge bg-success text-white" style="font-size:0.9rem;">${msName}</span></div>
-                                        <div><div class="role-title">อาจารย์ร่วม (Other Staff)</div><div class="name-list mt-1">${osList}</div></div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="step-container mt-3 pt-3 border-top">${steps}</div>
-                        </div>
-                    </div>
-                </div>`;
+    // 2. ดักจับเมื่อมีการเลือก Dropdown (กรองข้อมูล)
+    function applyDashboardFilters() {
+        const mrValue = document.getElementById('db-filter-mr').value;
+        const msValue = document.getElementById('db-filter-ms').value;
+
+        const filteredData = globalActiveDashboardData.filter(res => {
+            const mrNameString = getSafeData(res, 'main_research') || getSafeData(res, 'ramaID_MR') || '';
+            const msNameString = getSafeData(res, 'main_staff') || getSafeData(res, 'ramaID_MS') || '';
+            
+            const mrMatch = mrValue === "" || mrNameString === mrValue;
+            const msMatch = msValue === "" || msNameString === msValue;
+            
+            return mrMatch && msMatch; // ใช้เงื่อนไขแบบ AND (ต้องตรงทั้งคู่)
+        });
+
+        renderDashboardCards(filteredData);
+    }
+
+    // 3. ปุ่มสำหรับเคลียร์การค้นหา
+    function resetDashboardFilters() {
+        document.getElementById('db-filter-mr').value = "";
+        document.getElementById('db-filter-ms').value = "";
+        renderDashboardCards(globalActiveDashboardData);
+    }
+
+    // 4. วาดการ์ดแสดงผลงานวิจัยลงหน้าจอ
+    function renderDashboardCards(dataList) {
+        const container = document.getElementById('dashboard-container');
+        container.innerHTML = '';
+
+        if (dataList.length === 0) {
+            container.innerHTML = '<div class="col-12 text-center py-5 text-muted"><h5>❌ ไม่พบข้อมูลงานวิจัยที่ตรงกับเงื่อนไข</h5></div>';
+            return;
+        }
+
+        dataList.forEach(res => {
+            const title = getSafeData(res, 'Title') || 'ไม่ได้ระบุชื่อเรื่อง';
+            const mrName = getSafeData(res, 'main_research') || getSafeData(res, 'ramaID_MR') || '-';
+            const msName = getSafeData(res, 'main_staff') || getSafeData(res, 'ramaID_MS') || '-';
+            const orList = formatList(getSafeData(res, 'other_research'));
+            const osList = formatList(getSafeData(res, 'other_staff'));
+            const ecTag = generateECTag(getSafeData(res, 'EC_expire_date'));
+            const percentComplete = Math.round((res.score / dashboardSteps.length) * 100);
+
+            let steps = '';
+            dashboardSteps.forEach(s => { 
+                const isDone = getSafeData(res, s.key) !== "";
+                steps += `<div class="step-box ${isDone ? 'done' : 'pending'}">${s.label}</div>`;
             });
+
+            const actionBadge = res.isMyActionRequired ? `<span class="badge bg-danger blink-alert shadow-sm mt-2" style="font-size: 0.85rem;">🚩 รอคุณดำเนินการ: ${res.actionableLabel}</span>` : '';
+            const borderClass = res.isMyActionRequired ? 'border-danger' : 'border-primary';
+
+            container.innerHTML += `
+            <div class="col-md-6 col-lg-12">
+                <div class="card dashboard-card shadow-sm h-100 border-start border-4 ${borderClass}">
+                    <div class="card-body">
+                
+                        <div class="d-flex justify-content-between align-items-start border-bottom pb-2 mb-3">
+                            <div>
+                                <h5 class="card-title text-dark fw-bold mb-0">${res.isMyActionRequired ? '🚩 ' : ''}📄 ${title} ${ecTag}</h5>
+                                ${actionBadge}
+                            </div>
+                       
+                            <span class="badge bg-primary rounded-pill shadow-sm" style="font-size: 0.85rem;">คืบหน้า ${percentComplete}%</span>
+                        </div>
+
+                        <div class="row gx-4 gy-3">
+                         
+                            <div class="col-sm-6">
+                                <div class="p-3 bg-light rounded border h-100">
+                                    <div class="mb-2"><div class="role-title">ผู้วิจัยหลัก (Main Research)</div><span class="badge bg-primary text-white" style="font-size:0.9rem;">${mrName}</span></div>
+   
+                                    <div><div class="role-title">แพทย์ร่วม (Other Research)</div><div class="name-list mt-1">${orList}</div></div>
+                                </div>
+                      
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="p-3 bg-light rounded border h-100">
+                
+                                    <div class="mb-2"><div class="role-title">อ.ที่ปรึกษาหลัก (Main Staff)</div><span class="badge bg-success text-white" style="font-size:0.9rem;">${msName}</span></div>
+                                    <div><div class="role-title">อาจารย์ร่วม (Other Staff)</div><div class="name-list mt-1">${osList}</div></div>
+                       
+                                </div>
+                            </div>
+                        </div>
+                        <div class="step-container mt-3 pt-3 border-top">${steps}</div>
+                    </div>
+                </div>
+            </div>`;
         });
     }
 </script>
